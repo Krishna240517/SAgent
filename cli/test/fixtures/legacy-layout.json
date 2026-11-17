@@ -1,0 +1,7 @@
+{
+  "authPath": "auth/data",
+  "authTables": ["user", "session", "account", "verification"],
+  "projectPathPattern": "projects/<sanitized-local-path>/data",
+  "projectTables": [],
+  "eligibleImportTables": []
+}

@@ -1,69 +1,70 @@
 import { PrismaClient } from "../generated/prisma/client";
 import { PGlite } from "@electric-sql/pglite";
 import { PrismaPGlite } from "pglite-prisma-adapter";
-import os from "os";
-import path from "path";
-import fs from "fs";
+import { PrismaPg } from "@prisma/adapter-pg";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { env } from "./env";
 
-let prismaInstance: PrismaClient | null = null;
-let currentPglite: PGlite | null = null;
+let authPrismaInstance: PrismaClient | null = null;
+let authPglite: PGlite | null = null;
 
-// Export a Proxy so imports always hold a valid object reference
-export const prisma = new Proxy({} as PrismaClient, {
-    get(_target, prop) {
-        if (!prismaInstance) {
-            throw new Error(
-                `Prisma accessed before connectDB() was called (tried to access "${String(prop)}")`
-            );
-        }
-        const value = (prismaInstance as any)[prop];
-        return typeof value === "function" ? value.bind(prismaInstance) : value;
-    },
+export const authPrisma = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    if (!authPrismaInstance) throw new Error(`authPrisma accessed before connectAuthDB(): ${String(prop)}`);
+    const value = (authPrismaInstance as any)[prop];
+    return typeof value === "function" ? value.bind(authPrismaInstance) : value;
+  },
 });
 
-function sanitizeProjectPath(projectPath: string): string {
-    const resolvedPath = fs.existsSync(projectPath)
-        ? fs.realpathSync(projectPath)
-        : path.resolve(projectPath);
+export async function connectAuthDB() {
+  if (authPrismaInstance) return authPrismaInstance;
+  if (process.env.NODE_ENV === "production" && !env.AUTH_DATABASE_URL) {
+    throw new Error("AUTH_DATABASE_URL is required in production");
+  }
 
-    return resolvedPath.replace(/[:\\/]+/g, "-");
+  try {
+    if (env.AUTH_DATABASE_URL) {
+      authPrismaInstance = new PrismaClient({ adapter: new PrismaPg({ connectionString: env.AUTH_DATABASE_URL }) });
+    } else {
+      const directory = path.join(os.homedir(), ".sagent", "auth", "data");
+      fs.mkdirSync(directory, { recursive: true });
+      authPglite = new PGlite(directory);
+      const existing = await authPglite.query(
+        "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('user', 'session', 'account', 'verification')",
+      );
+      if (existing.rows.length === 0) {
+        await authPglite.exec(fs.readFileSync(new URL("../../prisma/auth.sql", import.meta.url), "utf8"));
+      } else if (existing.rows.length !== 4) {
+        throw new Error("Local auth database has an incomplete schema");
+      }
+      await authPglite.exec(fs.readFileSync(new URL("../../prisma/device.sql", import.meta.url), "utf8"));
+      const syncTables = await authPglite.query(
+        "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('SyncProject', 'SyncRecord', 'SyncEvent', 'SyncMutation')",
+      );
+      if (syncTables.rows.length === 0) {
+        await authPglite.exec(fs.readFileSync(new URL("../../prisma/migrations/202611170002_sync/migration.sql", import.meta.url), "utf8"));
+      } else if (syncTables.rows.length !== 4) {
+        throw new Error("Local sync database has an incomplete schema");
+      }
+      authPrismaInstance = new PrismaClient({ adapter: new PrismaPGlite(authPglite) });
+    }
+    await authPrismaInstance.$connect();
+    await authPrismaInstance.deviceCode.count();
+    return authPrismaInstance;
+  } catch (error) {
+    await authPrismaInstance?.$disconnect();
+    await authPglite?.close();
+    authPrismaInstance = null;
+    authPglite = null;
+    throw error;
+  }
 }
 
-export default async function connectDB(projectPath?: string) {
-    try {
-        if (prismaInstance) {
-            await prismaInstance.$disconnect();
-        }
-        if (currentPglite) {
-            await currentPglite.close();
-        }
-
-        const activeProject = projectPath || process.cwd();
-        const projectKey = sanitizeProjectPath(activeProject);
-
-        const dbDirectory = path.join(
-            os.homedir(),
-            ".sagent",
-            "projects",
-            projectKey,
-            "data"
-        );
-
-        if (!fs.existsSync(dbDirectory)) {
-            fs.mkdirSync(dbDirectory, { recursive: true });
-        }
-
-        currentPglite = new PGlite(dbDirectory);
-        const adapter = new PrismaPGlite(currentPglite);
-
-        prismaInstance = new PrismaClient({ adapter });
-
-        console.log(`Connected to DB for project [${projectKey}] at:`, dbDirectory);
-        await prismaInstance.$connect();
-
-        return prismaInstance;
-    } catch (e) {
-        console.error("Error in connecting to Database:", e);
-        process.exit(1);
-    }
+export async function disconnectAuthDB() {
+  await authPrismaInstance?.$disconnect();
+  await authPglite?.close();
+  authPrismaInstance = null;
+  authPglite = null;
 }

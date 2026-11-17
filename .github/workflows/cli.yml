@@ -1,0 +1,30 @@
+name: CLI package
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  package:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm pack --dry-run
+      - run: npm pack --pack-destination "${{ runner.temp }}"
+      - run: npm install -g "${{ runner.temp }}/sagent-cli-0.1.0.tgz"
+      - run: sagent --version
+      - run: sagent --help

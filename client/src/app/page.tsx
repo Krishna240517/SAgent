@@ -320,7 +320,7 @@ function TerminalPlanContent() {
       <div className="text-zinc-500 flex items-center gap-2">
         <span className="text-emerald-400 font-bold">{">"}</span>
         <span className="text-cyan-400 font-semibold">sagent plan</span>
-        <span className="text-zinc-200">"Refactor AuthMiddleware to support ECDSA token rotation and add regression suite"</span>
+        <span className="text-zinc-200">&quot;Refactor AuthMiddleware to support ECDSA token rotation and add regression suite&quot;</span>
       </div>
       <div className="text-zinc-500 mt-2">[00:00.04] Indexing abstract syntax tree across 142 repository files...</div>
       <div className="text-zinc-500">[00:00.12] Found 3 reference sinks in <span className="text-zinc-200">src/middleware/auth.rs</span> and <span className="text-zinc-200">src/crypto/keys.rs</span></div>
@@ -401,7 +401,7 @@ function TerminalDiffContent() {
           <div className="h-full bg-emerald-500" style={{ width: "85%" }} />
           <div className="h-full bg-red-500" style={{ width: "15%" }} />
         </div>
-        <span className="text-zinc-200 mt-1">commit c8fa2b1 ("feat(auth): integrate ECDSA token key-rotation with zero alloc caching")</span>
+        <span className="text-zinc-200 mt-1">commit c8fa2b1 (&quot;feat(auth): integrate ECDSA token key-rotation with zero alloc caching&quot;)</span>
       </div>
       <div className="text-cyan-400 font-semibold mt-2">✓ Ready to push. Staged cleanly in your native git index.</div>
     </div>

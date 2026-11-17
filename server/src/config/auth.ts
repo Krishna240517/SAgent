@@ -1,17 +1,17 @@
 import { betterAuth } from "better-auth";
-import { prisma } from "./db";
+import { authPrisma } from "./db";
 import { env } from "./env";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { bearer } from "better-auth/plugins";
+import { bearer, deviceAuthorization } from "better-auth/plugins";
 
 function createAuth() {
     return betterAuth({
-        database: prismaAdapter(prisma, {
+        database: prismaAdapter(authPrisma, {
             provider: "postgresql",
         }),
 
-        trustedOrigins: [`http://localhost:${env.FRONTEND_PORT}`],
-        baseURL: `http://localhost:${env.BACKEND_PORT}`,
+        trustedOrigins: [env.FRONTEND_URL],
+        baseURL: env.BASE_URL,
         basePath: "/api/auth",
         socialProviders: {
             github: {
@@ -20,7 +20,10 @@ function createAuth() {
             },
         },
 
-        plugins: [bearer()],
+        plugins: [bearer(), deviceAuthorization({
+            verificationUri: `${env.FRONTEND_URL}/device`,
+            validateClient: (clientId) => clientId === env.DEVICE_CLIENT_ID,
+        })],
 
         logger: {
             level: "debug",
@@ -31,12 +34,7 @@ function createAuth() {
 type AuthInstance = ReturnType<typeof createAuth>;
 let authInstance: AuthInstance | null = null;
 
-// Called by connectDB() when switching projects so auth re-initializes with the new DB
-export function resetAuth() {
-    authInstance = null;
-}
-
-// Lazy Proxy ensures betterAuth() runs only after connectDB() has initialized prisma
+// Lazy Proxy ensures betterAuth() runs only after connectAuthDB() has initialized authPrisma
 export const auth = new Proxy({} as AuthInstance, {
     get(_target, prop) {
         if (!authInstance) {

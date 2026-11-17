@@ -71,3 +71,60 @@ model Verification {
   @@index([identifier])
   @@map("verification")
 }
+
+model DeviceCode {
+  id              String    @id
+  deviceCode      String    @unique @db.VarChar(191)
+  userCode        String    @unique @db.VarChar(191)
+  userId          String?
+  clientId        String?
+  scope           String?
+  status          String
+  expiresAt       DateTime
+  lastPolledAt    DateTime?
+  pollingInterval Int?
+
+  @@map("deviceCode")
+}
+
+model SyncProject {
+  id        String   @id
+  userId    String
+  remoteUrl String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model SyncRecord {
+  userId    String
+  kind      String
+  recordId  String
+  projectId String?
+  payload   Json
+  revision  BigInt
+  updatedAt DateTime @default(now())
+
+  @@id([userId, kind, recordId])
+  @@index([userId, projectId])
+}
+
+model SyncEvent {
+  revision  BigInt   @id @default(autoincrement())
+  userId    String
+  kind      String
+  recordId  String
+  projectId String?
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([userId, projectId, revision])
+}
+
+model SyncMutation {
+  userId     String
+  mutationId String
+  revision   BigInt
+
+  @@id([userId, mutationId])
+}

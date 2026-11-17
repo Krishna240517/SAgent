@@ -1,0 +1,36 @@
+{
+  "name": "@sagent/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "bin": {
+    "sagent": "dist/main.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "MIGRATION.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepack": "npm run build",
+    "test": "npm run build && node --test",
+    "pack:check": "npm pack --dry-run"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.8.1",
+    "better-auth": "^1.7.18",
+    "boxen": "^9.0.0",
+    "chalk": "^6.0.1",
+    "commander": "^15.1.0",
+    "open": "^11.0.4",
+    "yocto-spinner": "^1.2.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.9.0"
+  }
+}
