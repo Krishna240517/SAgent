@@ -1,23 +1,69 @@
 import { PrismaClient } from "../generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import pg from "pg";
-import { env } from "./env";
+import { PGlite } from "@electric-sql/pglite";
+import { PrismaPGlite } from "pglite-prisma-adapter";
+import os from "os";
+import path from "path";
+import fs from "fs";
 
-const pool = new pg.Pool({
-    connectionString: env.DATABASE_URL
+let prismaInstance: PrismaClient | null = null;
+let currentPglite: PGlite | null = null;
+
+// Export a Proxy so imports always hold a valid object reference
+export const prisma = new Proxy({} as PrismaClient, {
+    get(_target, prop) {
+        if (!prismaInstance) {
+            throw new Error(
+                `Prisma accessed before connectDB() was called (tried to access "${String(prop)}")`
+            );
+        }
+        const value = (prismaInstance as any)[prop];
+        return typeof value === "function" ? value.bind(prismaInstance) : value;
+    },
 });
 
-const adapter = new PrismaPg(pool);
+function sanitizeProjectPath(projectPath: string): string {
+    const resolvedPath = fs.existsSync(projectPath)
+        ? fs.realpathSync(projectPath)
+        : path.resolve(projectPath);
 
-export const prisma = new PrismaClient({ adapter });
+    return resolvedPath.replace(/[:\\/]+/g, "-");
+}
 
-export default async function connectDB() {
+export default async function connectDB(projectPath?: string) {
     try {
-        await prisma.$connect();
-        console.log("Successfully connected to DB");
-    }
-    catch (e) {
-        console.log("Error in connecting to Database");
+        if (prismaInstance) {
+            await prismaInstance.$disconnect();
+        }
+        if (currentPglite) {
+            await currentPglite.close();
+        }
+
+        const activeProject = projectPath || process.cwd();
+        const projectKey = sanitizeProjectPath(activeProject);
+
+        const dbDirectory = path.join(
+            os.homedir(),
+            ".sagent",
+            "projects",
+            projectKey,
+            "data"
+        );
+
+        if (!fs.existsSync(dbDirectory)) {
+            fs.mkdirSync(dbDirectory, { recursive: true });
+        }
+
+        currentPglite = new PGlite(dbDirectory);
+        const adapter = new PrismaPGlite(currentPglite);
+
+        prismaInstance = new PrismaClient({ adapter });
+
+        console.log(`Connected to DB for project [${projectKey}] at:`, dbDirectory);
+        await prismaInstance.$connect();
+
+        return prismaInstance;
+    } catch (e) {
+        console.error("Error in connecting to Database:", e);
         process.exit(1);
     }
 }
