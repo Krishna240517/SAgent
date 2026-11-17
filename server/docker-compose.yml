@@ -1,7 +1,7 @@
 services:
   postgres-db:
     image: postgres:17-alpine
-    container_name: tagent-postgres
+    container_name: sagent-postgres
     restart: always
     ports:
       - "5432:5432"
