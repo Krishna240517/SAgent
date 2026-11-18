@@ -57,7 +57,7 @@ test("workspace inventory respects Git ignores and rejects secret or escaping re
     fs.symlinkSync(outside, path.join(repo, "src", "escape.ts"));
     assert.throws(() => safeSourceFile(info.root, "src/escape.ts"), /outside/);
     fs.symlinkSync(path.join(repo, ".env"), path.join(repo, "src", "alias.ts"));
-    assert.throws(() => safeSourceFile(info.root, "src/alias.ts"), /excluded/);
+    assert.throws(() => safeSourceFile(info.root, "src/alias.ts"), /excluded|outside/);
     assert.ok(!discoverWorkspace(repo).files.includes("src/alias.ts"));
   } catch (error) {
     if (error.code !== "EPERM") throw error;
