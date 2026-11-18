@@ -13,4 +13,4 @@ them after all seven phases; keep local automated checks in each phase.
 - [x] Phase 3: local tests link the same project ID across separate checkout paths and sync project-scoped history between isolated SQLite stores.
 - [ ] Phase 3: verify project-scoped history and Git revision checks on two physical machines.
 - [ ] Phase 3: run read-only coding questions on real JS, TS, Python, and Java repositories with a live model and review its file citations.
-- [ ] Phase 3: verify the packed Tree-sitter WASM CLI on macOS and Linux CI.
+- [x] Phase 3: packed Tree-sitter and Ripgrep CLI passed on Windows, macOS, and Linux ([CI run](https://github.com/Krishna240517/SAgent/actions/runs/44318042005)).
