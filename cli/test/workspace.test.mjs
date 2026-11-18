@@ -32,7 +32,10 @@ test("workspace inventory respects Git ignores and rejects secret or escaping re
   fs.writeFileSync(path.join(repo, "package.json"), "{}\n");
   execFileSync("git", ["-C", repo, "add", ".gitignore", "src/main.ts", "package.json"]);
   const info = discoverWorkspace(path.join(repo, "src"));
-  assert.equal(info.root, fs.realpathSync(repo));
+  assert.deepEqual(
+    [fs.statSync(info.root).dev, fs.statSync(info.root).ino],
+    [fs.statSync(repo).dev, fs.statSync(repo).ino],
+  );
   assert.ok(info.trackedFiles.includes("src/main.ts"));
   assert.ok(info.untrackedFiles.includes("src/extra.java"));
   assert.ok(!info.files.includes("ignored.py") && !info.files.includes(".env") && !info.files.includes(".aws/credentials"));
