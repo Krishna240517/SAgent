@@ -19,3 +19,7 @@ them after all seven phases; keep local automated checks in each phase.
 - [ ] Phase 4: test `sagent code fix` with a live model and interactive approval on a real repository.
 - [ ] Phase 4: run Docker sandbox checks on Windows, macOS, and Linux hosts with their required images installed.
 - [ ] Phase 4: verify real npm, Python dependency, Maven, and Gradle projects with offline dependencies available in the sandbox.
+
+- [ ] Phase 5: repeat the approved-plan handoff on two physical machines through the hosted API.
+- [ ] Phase 5: exercise companion and coding roles against the configured model and review their decisions on a real task.
+- [ ] Phase 5: run the packed LangGraph CLI on Windows, macOS, and Linux in CI.

@@ -61,3 +61,19 @@ If a check fails, the edit remains visible and the CLI reports failure. Use
 read-only coding questions still work without Docker. Dependency installation in
 the sandbox is not supported yet, so projects needing uncached packages may fail
 verification.
+
+### Multi-agent coding
+
+Run `sagent code run "fix the parser"` in the checkout. The CLI prints a task
+ID before planning. Review the exact patch at the prompt. The supervisor permits
+one edit and requires passing sandbox checks and a review without a blocking
+finding. Use `sagent code tasks` and `sagent code resume <id>` after a restart.
+Role outputs are available through `sagent code actions` and `sagent code action <id>`.
+
+For a handoff before editing, use `sagent code run "fix the parser" --prepare`,
+approve the summary, and run `sagent project sync` in both linked checkouts.
+Resume the ID at the same Git revision with matching readable files. After
+execution begins, approvals and execution checkpoints belong to the original
+checkout. Project sync carries the assignment, status and approved summary.
+Use `sagent code decide "new policy" --supersedes <decision-id>` to retain the
+previous decision while giving future roles the new one.

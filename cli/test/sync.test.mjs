@@ -1,3 +1,8 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import {execFileSync} from "node:child_process";
+import {startTask,queueTask,runTask} from "../dist/context/runs.js";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
@@ -93,6 +98,28 @@ test("project-scoped history follows a shared project ID", async () => {
     addMessage(a, conversation.id, "user", "Project-specific discussion");
     await syncNow(a, "token", projectId);
     await syncNow(b, "token", projectId);
+    const home=fs.mkdtempSync(path.join(os.tmpdir(),"sagent-handoff-"));
+    try {
+      const source=path.join(home,"source"), target=path.join(home,"target");
+      const git=(...args)=>execFileSync("git",args,{stdio:"ignore"});
+      git("init",source);
+      git("-C",source,"-c","user.email=test@example.test","-c","user.name=Test","commit","--allow-empty","-m","fixture");
+      git("clone",source,target);
+      const id=startTask(a,source,"fix");
+      a.prepare("UPDATE tasks SET summary='approved plan' WHERE id=?").run(id);queueTask(a,id);
+      await syncNow(a,"token",projectId);await syncNow(b,"token",projectId);
+      assert.equal(b.prepare("SELECT COUNT(*) AS n FROM run_state").get().n,0);
+      const run=()=>runTask(b,target,id,async()=>"",async()=>false,()=>{},()=>({
+        propose:async(_,plan)=>{assert.equal(plan,"approved plan");return {diff:"proposal"};},approve:async()=>false
+      }));
+      fs.writeFileSync(path.join(target,"extra.js"),"changed");
+      await assert.rejects(run(),/Checkout differs/);
+      fs.unlinkSync(path.join(target,"extra.js"));
+      assert.equal((await run()).status,"rejected");
+      b.prepare("DELETE FROM run_state WHERE id=?").run(id);
+      await assert.rejects(run(),/private checkpoint/);
+      assert.ok(events.filter(e=>e.kind==="task").every(e=>!("checkpoint" in e.payload)));
+    } finally { assert.equal(path.dirname(home),os.tmpdir());fs.rmSync(home,{recursive:true,force:true}); }
     assert.equal(getConversation(b, conversation.id).id, conversation.id);
     assert.equal(recentMessages(b, conversation.id)[0].content, "Project-specific discussion");
   } finally {

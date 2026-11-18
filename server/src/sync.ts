@@ -7,16 +7,20 @@ const id = z.string().uuid();
 const time = z.string().datetime();
 const revisionText = z.string().regex(/^\d{1,20}$/).refine((value) => BigInt(value) <= 9_223_372_036_854_775_807n);
 const payloads = {
+  task: z.object({ id, title: z.string().min(1).max(2000), status: z.enum(["running","completed","failed","pending"]),
+    created_at: time, updated_at: time, revision: z.string().regex(/^[a-f0-9]{40,64}$/).nullable(),
+    workspace_hash: z.string().regex(/^[a-f0-9]{64}$/), private_required: z.union([z.literal(0),z.literal(1)]),
+    summary: z.string().max(2000).nullable() }).strict(),
   conversation: z.object({ id, title: z.string().min(1).max(120), created_at: time, updated_at: time }),
   message: z.object({ id, conversation_id: id, role: z.enum(["user", "assistant"]), content: z.string().min(1).max(20_000), created_at: time }),
-  decision: z.object({ id, content: z.string().min(1).max(10_000), source_message_id: id.nullable(), created_at: time }),
+  decision: z.object({ id, supersedes_id: id.nullable().optional(), content: z.string().min(1).max(10_000), source_message_id: id.nullable(), created_at: time }),
   preference: z.object({ id, content: z.string().min(1).max(500), source: z.enum(["user", "message"]), source_message_id: id.nullable(), approved_at: time }),
 } as const;
 type Kind = keyof typeof payloads;
 
 const pushInput = z.object({
   mutationId: id,
-  kind: z.enum(["conversation", "message", "decision", "preference"]),
+  kind: z.enum(["conversation", "message", "decision", "preference","task"]),
   recordId: id,
   projectId: id.nullable().optional(),
   baseRevision: revisionText,
@@ -95,6 +99,7 @@ syncRouter.post("/push", async (req, res) => {
   if (!input.success) return res.status(400).json({ error: "Invalid sync mutation." });
   const { mutationId, kind, recordId, baseRevision } = input.data;
   const projectId = input.data.projectId || null;
+  if (kind === "task" && !projectId) return res.status(400).json({ error: "Task requires project scope." });
   const payload = payloads[kind as Kind].safeParse(input.data.payload);
   if (!payload.success || payload.data.id !== recordId) return res.status(400).json({ error: "Invalid record." });
   const userId: string = res.locals.userId;

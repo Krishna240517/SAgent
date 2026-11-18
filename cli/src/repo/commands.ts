@@ -77,9 +77,9 @@ project.command("conflicts").description("Review project sync conflicts").action
   } finally { opened.db.close(); }
 });
 project.command("resolve <kind> <id> <choice>").description("Choose local or remote project record").action((kind: string, id: string, choice: string) => {
-  if (!["conversation", "message", "decision"].includes(kind) || !["local", "remote"].includes(choice)) throw new Error("Choose conversation/message/decision and local/remote.");
+  if (!["conversation", "message", "decision", "task"].includes(kind) || !["local", "remote"].includes(choice)) throw new Error("Choose conversation/message/decision and local/remote.");
   const opened = openProjectStore();
-  try { resolveConflict(opened.db, kind as "conversation" | "message" | "decision", id, choice as "local" | "remote"); }
+  try { resolveConflict(opened.db, kind as "conversation" | "message" | "decision" | "task", id, choice as "local" | "remote"); }
   finally { opened.db.close(); }
 });
 

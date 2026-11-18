@@ -30,10 +30,9 @@ export function previewPatch(root: string, patch: TextPatch) {
   return { relative, full, beforeSha: digest(before), afterSha: digest(after), after, diff };
 }
 
-export function applyPatch(db: DatabaseSync, root: string, patch: TextPatch, expectedBeforeSha: string): ToolAction {
+export function applyPatch(db: DatabaseSync, root: string, patch: TextPatch, expectedBeforeSha: string, id: string = randomUUID()): ToolAction {
   const plan = previewPatch(root, patch);
   if (plan.beforeSha !== expectedBeforeSha) throw new Error("File changed since patch preview; review it again.");
-  const id = randomUUID();
   const createdAt = new Date().toISOString();
   db.prepare("INSERT INTO tool_actions (id, operation, path, before_sha, after_sha, diff, status, created_at) VALUES (?, 'patch', ?, ?, ?, ?, 'pending', ?)")
     .run(id, plan.relative, plan.beforeSha, plan.afterSha, plan.diff, createdAt);

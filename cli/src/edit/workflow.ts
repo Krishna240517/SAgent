@@ -1,6 +1,6 @@
+import { activeDecisions } from "../chat/store.js";
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import type { Decision } from "../storage/records.js";
 import { buildContext, collectEvidence, type ContextSource } from "../context/engine.js";
 import { SymbolIndex } from "../repo/symbols.js";
 import { applyPatch, previewPatch, type TextPatch } from "./patch.js";
@@ -25,7 +25,7 @@ export async function executeFix(db: DatabaseSync, root: string, task: string, p
   if (!task.trim() || task.length > 2_000) throw new Error("Coding task must be 1–2,000 characters.");
   const index = new SymbolIndex(root);
   await index.refresh();
-  const decisions = db.prepare("SELECT * FROM decisions ORDER BY rowid DESC LIMIT 10").all() as Decision[];
+  const decisions = activeDecisions(db);
   const sources: ContextSource[] = [
     ...decisions.map((item) => ({ id: `decision:${item.id}`, kind: "decision" as const, content: item.content })),
     ...collectEvidence(root, task, index),

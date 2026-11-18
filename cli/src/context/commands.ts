@@ -1,3 +1,4 @@
+import { activeDecisions } from "../chat/store.js";
 import { Command } from "commander";
 import { confirm, isCancel } from "@clack/prompts";
 import { API_URL } from "../config.js";
@@ -5,7 +6,7 @@ import { getStoredToken } from "../commands/auth/token.js";
 import { addDecision, addMessage, createConversation, getConversation, listConversations } from "../chat/store.js";
 import { textDeltas } from "../chat/stream.js";
 import { openProjectStore } from "../storage/index.js";
-import type { Decision, Message } from "../storage/records.js";
+import type { Message } from "../storage/records.js";
 import { SymbolIndex } from "../repo/symbols.js";
 import { buildContext, collectEvidence, type ContextSource } from "./engine.js";
 import { latestSummary, summarizeHistory } from "./memory.js";
@@ -42,7 +43,7 @@ code.command("ask <question>").description("Answer with bounded local source con
       await summarizeHistory(db, conversation.id, (prompt) => model(token.access_token, prompt, undefined, false));
       const index = new SymbolIndex(opened.link.local_path);
       await index.refresh();
-      const decisions = db.prepare("SELECT * FROM decisions ORDER BY rowid DESC LIMIT 10").all() as Decision[];
+      const decisions = activeDecisions(db);
       const prior = db.prepare("SELECT * FROM messages WHERE conversation_id = ? AND id != ? ORDER BY rowid DESC LIMIT 10").all(conversation.id, current.id) as Message[];
       const summary = latestSummary(db, conversation.id);
       const evidence = collectEvidence(opened.link.local_path, question, index);
@@ -101,8 +102,46 @@ code.command("list").description("List local coding conversations").action(() =>
   try { for (const item of listConversations(opened.db)) console.log(`${item.id}  ${item.title}`); }
   finally { opened.db.close(); }
 });
-code.command("decide <text>").description("Record an approved project decision").action((text: string) => {
+code.command("decide <text>").description("Record an approved project decision").option("--supersedes <id>", "Replace an earlier decision").action((text: string, options: { supersedes?: string }) => {
   const opened = openProjectStore();
-  try { console.log(`Saved project decision ${addDecision(opened.db, text).id}`); }
+  try { console.log(`Saved project decision ${addDecision(opened.db, text, options.supersedes).id}`); }
   finally { opened.db.close(); }
+});
+
+async function codingRun(value:string, resume:boolean, prepare=false) {
+  if (!process.stdin.isTTY) throw new Error("Open an interactive terminal to approve edits.");
+  const token=await getStoredToken();
+  if (!token) throw new Error("Run sagent login first.");
+  const opened=openProjectStore();
+  try {
+    const {runTask,startTask,queueTask}=await import("./runs.js");
+    const {codingRoles}=await import("./roles.js");
+    const {atomic}=await import("../sync/local.js");
+    const invoke=(prompt:string,context:string)=>model(token.access_token,prompt,context,false);
+    const ask=async(message:string)=> (await confirm({message,initialValue:false}))===true;
+    const id=resume?value:startTask(opened.db,opened.link.local_path,value);
+    console.log("Task "+id);
+    if(prepare) {
+      const plan=await codingRoles(opened.db,opened.link.local_path,invoke,async()=>false,async()=>{throw new Error("Planning only.");}).plan(value);
+      console.log(plan);
+      if(plan.length>2000) throw new Error("Plan exceeds the 2,000-character handoff limit.");
+      if(await ask("Save this plan as the approved summary for project sync?")) atomic(opened.db,()=>{
+        opened.db.prepare("UPDATE tasks SET summary=? WHERE id=?").run(plan,id);queueTask(opened.db,id);
+      });
+      return;
+    }
+    const result=await runTask(opened.db,opened.link.local_path,id,invoke,async diff=>{
+      console.log(diff);return ask("Apply this exact patch?");
+    },(role,detail)=>console.log(role+"\n"+detail));
+    console.log(result.status+" "+result.detail);
+    if(result.status==="failed") process.exitCode=1;
+  } finally {opened.db.close();}
+}
+code.command("run <task>").description("Run Planner, Coder, Tester and Reviewer").option("--prepare","Prepare an approved plan for another checkout")
+  .action((task:string,options:{prepare?:boolean})=>codingRun(task,false,options.prepare));
+code.command("resume <id>").description("Resume a checkpointed coding task").action((id:string)=>codingRun(id,true));
+code.command("tasks").description("List project coding tasks").action(()=>{
+  const opened=openProjectStore();
+  try {for(const row of opened.db.prepare("SELECT id,status,title FROM tasks ORDER BY rowid DESC").all()) console.log(row.id,row.status,row.title);}
+  finally {opened.db.close();}
 });

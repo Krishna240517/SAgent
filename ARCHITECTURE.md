@@ -4,6 +4,8 @@
 
 SAgent is the product to ship. The older TAgent project supplies useful workflow, context, sandbox, and MCP examples, but its Google ADK and direct database access are not the runtime architecture for the published SAgent CLI. SAgent must support ordinary conversations and autonomous coding in JavaScript, TypeScript, Python, and Java, then add GitHub, Docker, Docker Hub, local Kubernetes, and Amazon EKS operations.
 
+Model credentials belong in the server environment. When a phase introduces a provider, add its key under `# To be configured` in the local server environment and its example template. Keep example values empty.
+
 ## Architecture decisions
 
 | Area | Decision |
@@ -170,6 +172,8 @@ cross-platform Docker checks remain in [VERIFICATION_BACKLOG.md](VERIFICATION_BA
 ## Phase 5 — Multi-agent coding and durable recovery
 
 **Goal:** turn the working coding loop into the requested MAS without losing control or context.
+
+The CLI exposes the sequential supervisor through `sagent code run`. SQLite stores local checkpoints and approvals. A handoff before editing carries the approved plan to a linked checkout. See [VERIFICATION_BACKLOG.md](VERIFICATION_BACKLOG.md) for external checks.
 
 ### 5.1 LangGraph workflows
 

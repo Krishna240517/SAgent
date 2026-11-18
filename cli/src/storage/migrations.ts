@@ -32,6 +32,8 @@ CREATE TABLE sync_outbox (
 CREATE INDEX sync_outbox_created_idx ON sync_outbox(created_at);
 `;
 
+const decisionVersion = "ALTER TABLE decisions ADD COLUMN supersedes_id TEXT;";
+
 const migrations = {
   global: [sharedTables + `
 CREATE TABLE project_links (
@@ -70,7 +72,7 @@ CREATE TABLE sync_conflicts (
   remote_revision TEXT NOT NULL,
   PRIMARY KEY (entity_type, entity_id)
 );
-`],
+`, decisionVersion],
   project: [sharedTables + `
 CREATE TABLE tasks (
   id TEXT PRIMARY KEY,
@@ -120,6 +122,12 @@ CREATE TABLE tool_actions (
   created_at TEXT NOT NULL,
   output TEXT NOT NULL DEFAULT ''
 );
+`, decisionVersion + `
+ALTER TABLE tasks ADD COLUMN revision TEXT;
+ALTER TABLE tasks ADD COLUMN workspace_hash TEXT;
+ALTER TABLE tasks ADD COLUMN private_required INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE tasks ADD COLUMN summary TEXT;
+CREATE TABLE run_state (id TEXT PRIMARY KEY REFERENCES tasks(id), checkpoint BLOB, approval TEXT, result TEXT);
 `],
 } as const;
 

@@ -26,6 +26,7 @@ async function startChat(id?: string, fresh = false) {
     for (const message of recentMessages(db, conversation.id).slice(-20)) {
       console.log(`${message.role}: ${message.content}`);
     }
+    const { entrypoint } = await import("@langchain/langgraph");
     while (!closed) {
       let prompt: string;
       try { prompt = (await rl.question("you> ")).trim(); } catch { break; }
@@ -37,17 +38,22 @@ async function startChat(id?: string, fresh = false) {
       controller = new AbortController();
       let answer = "";
       try {
-        const response = await fetch(`${API_URL}/api/chat/stream`, {
-          method: "POST",
-          headers: { authorization: `Bearer ${token.access_token}`, "content-type": "application/json" },
-          body: JSON.stringify({
-            messages: recentMessages(db, conversation.id).map(({ role, content }) => ({ role, content })),
-            preferences: listPreferences(db).slice(0, 20).map(({ content }) => content),
-          }),
-          signal: controller.signal,
+        const signal = controller.signal;
+        const companion = entrypoint("companion", async (messages: {role:string; content:string}[]) => {
+          const response = await fetch(`${API_URL}/api/chat/stream`, {
+            method: "POST",
+            headers: { authorization: `Bearer ${token.access_token}`, "content-type": "application/json" },
+            body: JSON.stringify({
+              messages,
+              preferences: listPreferences(db).slice(0, 20).map(({ content }) => content),
+            }),
+            signal,
+          });
+          process.stdout.write("sagent> ");
+          for await (const delta of textDeltas(response)) { process.stdout.write(delta); answer += delta; }
+          return answer;
         });
-        process.stdout.write("sagent> ");
-        for await (const delta of textDeltas(response)) { process.stdout.write(delta); answer += delta; }
+        await companion.invoke(recentMessages(db, conversation.id).map(({role,content})=>({role,content})), { signal });
         process.stdout.write("\n");
         if (answer) addMessage(db, conversation.id, "assistant", answer);
       } catch (error) {

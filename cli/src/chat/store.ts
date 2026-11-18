@@ -68,13 +68,19 @@ export function listPreferences(db: DatabaseSync): AcceptedPreference[] {
   return db.prepare("SELECT * FROM accepted_preferences ORDER BY approved_at DESC").all() as AcceptedPreference[];
 }
 
-export function addDecision(db: DatabaseSync, content: string): Decision {
+export function activeDecisions(db: DatabaseSync): Decision[] {
+  return db.prepare(`SELECT * FROM decisions d WHERE NOT EXISTS
+    (SELECT 1 FROM decisions newer WHERE newer.supersedes_id = d.id) ORDER BY d.rowid DESC LIMIT 10`).all() as Decision[];
+}
+
+export function addDecision(db: DatabaseSync, content: string, supersedesId?: string): Decision {
   const clean = content.trim();
   if (!clean || clean.length > 10_000) throw new Error("Decision must be 1–10,000 characters.");
-  const decision: Decision = { id: randomUUID(), content: clean, source_message_id: null, created_at: new Date().toISOString() };
+  const decision = { supersedes_id: supersedesId ?? null, id: randomUUID(), content: clean, source_message_id: null, created_at: new Date().toISOString() };
   atomic(db, () => {
-    db.prepare("INSERT INTO decisions (id, content, source_message_id, created_at) VALUES (?, ?, ?, ?)")
-      .run(decision.id, clean, null, decision.created_at);
+    if (supersedesId && !db.prepare("SELECT 1 FROM decisions WHERE id = ?").get(supersedesId)) throw new Error("Original decision not found.");
+    db.prepare("INSERT INTO decisions (id, content, source_message_id, created_at, supersedes_id) VALUES (?, ?, ?, ?, ?)")
+      .run(decision.id, clean, null, decision.created_at, decision.supersedes_id);
     queueUpsert(db, "decision", decision);
   });
   return decision;

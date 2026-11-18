@@ -2,7 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { API_URL } from "../config.js";
 import { atomic, queueUpsert } from "./local.js";
 
-type Kind = "conversation" | "message" | "decision" | "preference";
+type Kind = "conversation" | "message" | "decision" | "preference" | "task";
 type Event = { revision: string; kind: Kind; recordId: string; payload: Record<string, any> };
 type Outbox = { id: string; entity_type: Kind; entity_id: string; payload_json: string };
 
@@ -16,7 +16,7 @@ function setRevision(db: DatabaseSync, kind: string, id: string, value: string) 
 }
 
 export function localRecord(db: DatabaseSync, kind: Kind, id: string): Record<string, any> | undefined {
-  const table = { conversation: "conversations", message: "messages", decision: "decisions", preference: "accepted_preferences" }[kind];
+  const table = { conversation: "conversations", message: "messages", decision: "decisions", preference: "accepted_preferences", task: "tasks" }[kind];
   return db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(id) as Record<string, any> | undefined;
 }
 
@@ -24,6 +24,12 @@ function applyRecord(db: DatabaseSync, event: Event) {
   const item = event.payload;
   if (item.id !== event.recordId) throw new Error("Sync record ID mismatch.");
   switch (event.kind) {
+    case "task":
+      db.prepare(`INSERT INTO tasks (id,title,status,created_at,updated_at,revision,workspace_hash,private_required,summary)
+        VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET status=excluded.status,updated_at=excluded.updated_at,
+        private_required=excluded.private_required,summary=excluded.summary`)
+        .run(item.id,item.title,item.status,item.created_at,item.updated_at,item.revision,item.workspace_hash,item.private_required,item.summary);
+      break;
     case "conversation":
       db.prepare("INSERT INTO conversations VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, updated_at = excluded.updated_at")
         .run(item.id, item.title, item.created_at, item.updated_at);
@@ -33,8 +39,8 @@ function applyRecord(db: DatabaseSync, event: Event) {
         .run(item.id, item.conversation_id, item.role, item.content, item.created_at);
       break;
     case "decision":
-      db.prepare("INSERT INTO decisions VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET content = excluded.content")
-        .run(item.id, item.content, item.source_message_id, item.created_at);
+      db.prepare("INSERT INTO decisions (id,content,source_message_id,created_at,supersedes_id) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET content = excluded.content, supersedes_id = excluded.supersedes_id")
+        .run(item.id, item.content, item.source_message_id, item.created_at, item.supersedes_id ?? null);
       break;
     case "preference":
       db.prepare("INSERT INTO accepted_preferences VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET content = excluded.content")

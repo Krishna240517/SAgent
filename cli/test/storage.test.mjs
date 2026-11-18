@@ -23,11 +23,11 @@ test("versioned SQLite stores preserve data and project ID on reopen", (t) => {
   fs.mkdirSync(checkout);
   const first = openProjectStore(checkout, root);
   try {
-    assert.equal(first.db.prepare("PRAGMA user_version").get().user_version, 3);
+    assert.equal(first.db.prepare("PRAGMA user_version").get().user_version, 4);
     assert.equal(fs.existsSync(path.join(root, "projects", first.link.project_id, "state.sqlite")), true);
     first.db.prepare("INSERT INTO conversations VALUES (?, ?, ?, ?)").run("c1", "test", "now", "now");
     assert.throws(() => first.db.prepare("INSERT INTO messages VALUES (?, ?, ?, ?, ?)").run("m1", "missing", "user", "text", "now"), /FOREIGN KEY/);
-    first.db.exec("DROP TABLE tool_actions; PRAGMA user_version = 2");
+    first.db.exec("DROP TABLE run_state; ALTER TABLE tasks DROP COLUMN revision; ALTER TABLE tasks DROP COLUMN workspace_hash; ALTER TABLE tasks DROP COLUMN private_required; ALTER TABLE tasks DROP COLUMN summary; ALTER TABLE decisions DROP COLUMN supersedes_id; DROP TABLE tool_actions; PRAGMA user_version = 2");
   } finally {
     first.db.close();
   }
@@ -35,7 +35,7 @@ test("versioned SQLite stores preserve data and project ID on reopen", (t) => {
   try {
     assert.equal(second.link.project_id, first.link.project_id);
     assert.equal(second.db.prepare("SELECT title FROM conversations WHERE id = ?").get("c1").title, "test");
-    assert.equal(second.db.prepare("PRAGMA user_version").get().user_version, 3);
+    assert.equal(second.db.prepare("PRAGMA user_version").get().user_version, 4);
     assert.equal(second.db.prepare("SELECT count(*) AS count FROM tool_actions").get().count, 0);
     assert.equal(second.link.remote_url, null);
   } finally {
@@ -43,9 +43,9 @@ test("versioned SQLite stores preserve data and project ID on reopen", (t) => {
   }
   const global = openGlobalStore(root);
   try {
-    assert.equal(global.prepare("PRAGMA user_version").get().user_version, 2);
+    assert.equal(global.prepare("PRAGMA user_version").get().user_version, 3);
     assert.equal(fs.existsSync(path.join(root, "global.sqlite")), true);
-    global.exec("PRAGMA user_version = 3");
+    global.exec("PRAGMA user_version = 4");
   } finally {
     global.close();
   }
