@@ -46,8 +46,8 @@ Repository files, tool output, MCP responses, issues, and logs are untrusted inp
 
 ## Phase 1 — Product foundation and package boundary
 
-**Implementation status:** Windows build, tests, and packed install pass locally.
-macOS and Linux package checks await CI; `@sagent/cli` is not yet reserved on npm.
+**Implementation status:** Windows, macOS, and Linux clean-checkout package gates
+pass in CI. `@sagent/cli` is not yet reserved on npm.
 
 **Goal:** make SAgent a reproducible, publishable CLI project before adding agent behavior.
 

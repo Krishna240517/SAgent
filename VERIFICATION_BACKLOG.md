@@ -3,7 +3,7 @@
 These checks need external services, credentials, or a second machine. Complete
 them after all seven phases; keep local automated checks in each phase.
 
-- [ ] Phase 1: run the packed CLI gate on macOS and Linux CI and from a pristine checkout.
+- [x] Phase 1: packed CLI gate passed on Windows, macOS, and Linux from a clean checkout ([CI run, attempt 2](https://github.com/Krishna240517/SAgent/actions/runs/44133862883)). The first macOS attempt was cancelled before a runner started.
 - [ ] Phase 1: claim the `@sagent/cli` npm scope/name before publication.
 - [ ] Phase 2: apply Prisma migrations to a hosted PostgreSQL database and run the auth flow there.
 - [ ] Phase 2: complete a real GitHub browser sign in, device approval, and CLI logout.
