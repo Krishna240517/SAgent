@@ -42,7 +42,7 @@ history is bound to one account; use a separate SAgent home for another account.
 Only chat messages, decisions, and explicitly saved preferences sync. Source
 files and environment values remain local.
 
-Coding search uses `rg` (ripgrep). The CLI bundles Tree-sitter WASM grammars for
+Coding search bundles Ripgrep. The CLI also bundles Tree-sitter WASM grammars for
 JavaScript, TypeScript, TSX, Python, and Java, so installation needs no C++
 compiler. Their licenses are included in `assets/tree-sitter/`. Coding questions
 send only selected, bounded source excerpts to the model gateway; files stay in

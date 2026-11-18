@@ -87,7 +87,7 @@ export const repo = new Command("repo").description("Read-only repository search
 repo.command("glob <pattern>").description("List matching readable paths").action((pattern: string) => {
   for (const file of globFiles(discoverWorkspace().root, pattern)) console.log(file);
 });
-repo.command("search <regex>").description("Search source with ripgrep").action((pattern: string) => {
+repo.command("search <regex>").description("Search source with bundled Ripgrep").action((pattern: string) => {
   const root = discoverWorkspace().root;
   for (const item of searchText(root, pattern)) console.log(`${item.path}:${item.line}: ${item.text}`);
 });

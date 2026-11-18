@@ -96,9 +96,13 @@ test("a directory without Git still honors ignore rules", (t) => {
   fs.writeFileSync(path.join(root, ".env"), "SECRET=value\n");
   fs.writeFileSync(path.join(root, "ignored.py"), "hidden\n");
   fs.writeFileSync(path.join(root, "src", "visible.py"), "def visible(): pass\n");
-  const info = discoverWorkspace(root);
-  assert.equal(info.isGit, false);
-  assert.ok(info.files.includes("src/visible.py"));
-  assert.ok(!info.files.includes("ignored.py") && !info.files.includes(".env"));
-  assert.equal(readRange(root, "src/visible.py", 1, 1)[0].text, "def visible(): pass");
+  const originalPath = process.env.PATH;
+  process.env.PATH = "";
+  try {
+    const info = discoverWorkspace(root);
+    assert.equal(info.isGit, false);
+    assert.ok(info.files.includes("src/visible.py"));
+    assert.ok(!info.files.includes("ignored.py") && !info.files.includes(".env"));
+    assert.equal(readRange(root, "src/visible.py", 1, 1)[0].text, "def visible(): pass");
+  } finally { process.env.PATH = originalPath; }
 });

@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { rgPath } from "@vscode/ripgrep";
 
 const hidden = new Set([".git", ".sagent", ".ssh", ".aws", ".azure", ".kube", ".terraform", "node_modules", "dist", "build", "target", ".next", ".venv", "__pycache__"]);
 const buildNames = new Set(["package.json", "pyproject.toml", "requirements.txt", "pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle", "gradlew", "Makefile", "tsconfig.json"]);
@@ -42,13 +43,12 @@ export function safeSourceFile(root: string, relative: string): string {
 
 function fallbackFiles(root: string): string[] {
   try {
-    return execFileSync("rg", ["--files", "--hidden", "--no-require-git", "-0", "-g", "!.git"], {
+    return execFileSync(rgPath, ["--files", "--hidden", "--no-require-git", "-0", "-g", "!.git"], {
       cwd: root, encoding: "utf8", timeout: 5000, maxBuffer: 8 * 1024 * 1024,
       stdio: ["ignore", "pipe", "ignore"],
     }).split("\0").filter(Boolean).map((file) => file.replaceAll("\\", "/").replace(/^\.\//, ""));
   } catch {
-    // shortcut: a non-Git workspace needs ripgrep to honor ignore rules; package a binary if this blocks installs.
-    throw new Error("Ripgrep is required to inspect a directory without Git.");
+    throw new Error("Could not inspect this directory with bundled Ripgrep.");
   }
 }
 

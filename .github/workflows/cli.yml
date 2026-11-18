@@ -29,3 +29,4 @@ jobs:
       - run: sagent --version
       - run: sagent --help
       - run: sagent repo map --budget 1000
+      - run: sagent repo search SymbolIndex

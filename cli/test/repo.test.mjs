@@ -37,6 +37,11 @@ test("four-language symbol map, bounded reads, caller search, and incremental re
   assert.throws(() => readRange(root, ".env"), /ignored/);
   assert.ok(searchText(root, "tool\\(").some((entry) => entry.path === "src/main.js" && entry.line === 2));
   assert.ok(!searchText(root, "password").some((entry) => entry.path === ".env"));
+  const originalPath = process.env.PATH;
+  process.env.PATH = "";
+  try {
+    assert.ok(searchText(root, "tool\\(").some((entry) => entry.path === "src/main.js" && entry.line === 2));
+  } finally { process.env.PATH = originalPath; }
   const map = index.map("fetchItem", 1200);
   assert.ok(map.includes("src/api.ts:2"));
   assert.ok(Buffer.byteLength(map) <= 1200);
