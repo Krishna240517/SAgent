@@ -83,7 +83,7 @@ export function linkProject(projectPath: string, projectId: string, root = path.
       if (fs.existsSync(file)) {
         const db = openDatabase(file, "project");
         try {
-          for (const table of ["conversations", "messages", "decisions", "tasks", "accepted_preferences", "summaries", "sync_outbox", "sync_conflicts"]) {
+          for (const table of ["conversations", "messages", "decisions", "tasks", "accepted_preferences", "summaries", "tool_actions", "sync_outbox", "sync_conflicts"]) {
             if ((db.prepare(`SELECT count(*) AS count FROM ${table}`).get() as { count: number }).count) {
               throw new Error("This checkout has project history. Export or preserve it before linking a different ID.");
             }

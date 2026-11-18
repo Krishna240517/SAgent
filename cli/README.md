@@ -32,6 +32,9 @@ sagent repo search <regex>   Find bounded source matches with line numbers
 sagent repo read <path>      Read source lines (optional --start/--end)
 sagent repo map [query]      Show a bounded Tree-sitter symbol map
 sagent code ask <question>   Ask a read-only question about this repository
+sagent code fix <task>       Preview one model-proposed edit, approve it, and run Docker checks
+sagent code actions          List recent edit and verification actions
+sagent code action <id>      Show a recorded diff or check failure
 sagent code list             List local coding conversations
 sagent code decide <text>    Record an approved project decision
 ```
@@ -48,3 +51,13 @@ compiler. Their licenses are included in `assets/tree-sitter/`. Coding questions
 send only selected, bounded source excerpts to the model gateway; files stay in
 the checkout. Before resuming work on another machine, run `sagent project
 check-revision <sha>` against the expected Git commit.
+
+`code fix` requires an interactive terminal, local Linux Docker, and the relevant
+preinstalled test image. It proposes one replacement in an existing source file;
+you approve its diff before it changes the checkout. SAgent runs matching focused
+tests first, then available repository checks in an isolated copy with no network.
+If a check fails, the edit remains visible and the CLI reports failure. Use
+`code actions` and `code action <id>` to inspect its record. Ordinary chat and
+read-only coding questions still work without Docker. Dependency installation in
+the sandbox is not supported yet, so projects needing uncached packages may fail
+verification.

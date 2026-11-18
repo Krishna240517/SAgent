@@ -108,6 +108,18 @@ CREATE TABLE sync_conflicts (
   remote_revision TEXT NOT NULL,
   PRIMARY KEY (entity_type, entity_id)
 );
+`, `
+CREATE TABLE tool_actions (
+  id TEXT PRIMARY KEY,
+  operation TEXT NOT NULL,
+  path TEXT NOT NULL,
+  before_sha TEXT NOT NULL,
+  after_sha TEXT NOT NULL,
+  diff TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'completed', 'failed', 'conflict', 'rejected')),
+  created_at TEXT NOT NULL,
+  output TEXT NOT NULL DEFAULT ''
+);
 `],
 } as const;
 

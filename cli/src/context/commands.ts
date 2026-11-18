@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { confirm, isCancel } from "@clack/prompts";
 import { API_URL } from "../config.js";
 import { getStoredToken } from "../commands/auth/token.js";
 import { addDecision, addMessage, createConversation, getConversation, listConversations } from "../chat/store.js";
@@ -8,6 +9,8 @@ import type { Decision, Message } from "../storage/records.js";
 import { SymbolIndex } from "../repo/symbols.js";
 import { buildContext, collectEvidence, type ContextSource } from "./engine.js";
 import { latestSummary, summarizeHistory } from "./memory.js";
+import { executeFix } from "../edit/workflow.js";
+import { recoverActions } from "../edit/patch.js";
 
 async function model(token: string, question: string, context?: string, echo = true): Promise<string> {
   const response = await fetch(`${API_URL}/api/chat/stream`, {
@@ -24,7 +27,7 @@ async function model(token: string, question: string, context?: string, echo = t
   return answer;
 }
 
-export const code = new Command("code").description("Ask read-only questions about this repository");
+export const code = new Command("code").description("Ask about or safely edit this repository");
 code.command("ask <question>").description("Answer with bounded local source context").option("--new", "Start a new coding conversation")
   .option("--conversation <id>", "Continue a specific coding conversation")
   .action(async (question: string, options: { new?: boolean; conversation?: string }) => {
@@ -57,6 +60,42 @@ code.command("ask <question>").description("Answer with bounded local source con
       console.log(`Conversation: ${conversation.id}`);
     } finally { db.close(); }
   });
+code.command("fix <task>").description("Propose one edit, request approval, then verify it in Docker").action(async (task: string) => {
+  if (!process.stdin.isTTY) throw new Error("An interactive terminal is required to approve source edits.");
+  const token = await getStoredToken();
+  if (!token) throw new Error("Run sagent login first.");
+  const opened = openProjectStore();
+  try {
+    const result = await executeFix(opened.db, opened.link.local_path, task,
+      (prompt, context) => model(token.access_token, prompt, context, false),
+      async (diff) => {
+        console.log(diff);
+        const answer = await confirm({ message: "Apply this patch to the workspace?", initialValue: false });
+        return !isCancel(answer) && answer;
+      });
+    if (result.status === "rejected") return console.log("Patch declined; source files were not changed.");
+    console.log(`Patch action: ${result.actionId}`);
+    for (const check of result.checks) console.log(`${check.kind}: ${check.result.status}\n${check.result.output}`);
+    if (result.status !== "verified") {
+      process.exitCode = 1;
+      console.log("Edit applied, but verification did not pass. Inspect the action log and fix the failure.");
+    } else console.log("Edit verified in the Docker sandbox.");
+  } finally { opened.db.close(); }
+});
+code.command("actions").description("Show recent coding tool actions and recovery status").action(() => {
+  const opened = openProjectStore();
+  try {
+    for (const item of recoverActions(opened.db, opened.link.local_path)) console.log(`${item.created_at} ${item.id} ${item.operation} ${item.status} ${item.path}`);
+  } finally { opened.db.close(); }
+});
+code.command("action <id>").description("Show a coding action's diff and check output").action((id: string) => {
+  const opened = openProjectStore();
+  try {
+    const action = recoverActions(opened.db, opened.link.local_path).find((item) => item.id === id);
+    if (!action) throw new Error("Coding action not found in the recent log.");
+    console.log(`${action.operation}: ${action.status}\n${action.diff}${action.output}`);
+  } finally { opened.db.close(); }
+});
 code.command("list").description("List local coding conversations").action(() => {
   const opened = openProjectStore();
   try { for (const item of listConversations(opened.db)) console.log(`${item.id}  ${item.title}`); }

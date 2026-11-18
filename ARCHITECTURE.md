@@ -140,6 +140,10 @@ model and physical two-machine verification remain in
 
 ## Phase 4 — Safe editing and sandboxed execution
 
+**Implementation status:** local approval, atomic single-file patches, action recovery,
+Docker isolation, and four-language verification fixtures pass. Live model and
+cross-platform Docker checks remain in [VERIFICATION_BACKLOG.md](VERIFICATION_BACKLOG.md).
+
 **Goal:** complete a coding task with a reviewable diff and isolated verification.
 
 ### 4.1 File changes
