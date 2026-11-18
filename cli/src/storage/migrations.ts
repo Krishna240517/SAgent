@@ -79,6 +79,35 @@ CREATE TABLE tasks (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+`, `
+CREATE TABLE summaries (
+  id TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  source_message_ids_json TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE accepted_preferences (
+  id TEXT PRIMARY KEY,
+  content TEXT NOT NULL,
+  source TEXT NOT NULL,
+  source_message_id TEXT,
+  approved_at TEXT NOT NULL
+);
+CREATE TABLE sync_revisions (
+  entity_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  revision TEXT NOT NULL,
+  PRIMARY KEY (entity_type, entity_id)
+);
+CREATE TABLE sync_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE sync_conflicts (
+  entity_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  remote_payload_json TEXT NOT NULL,
+  remote_revision TEXT NOT NULL,
+  PRIMARY KEY (entity_type, entity_id)
+);
 `],
 } as const;
 

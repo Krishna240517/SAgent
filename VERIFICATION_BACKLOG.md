@@ -10,4 +10,7 @@ them after all seven phases; keep local automated checks in each phase.
 - [ ] Phase 2: make a live model request with a production API key.
 - [ ] Phase 2: resume a conversation from two separate machines and test offline reconnection.
 - [ ] Phase 2: validate the full interactive terminal chat through a real browser-approved login and hosted API.
-- [ ] Phase 3: link the same project ID across checkout paths and verify that project-scoped history follows it.
+- [x] Phase 3: local tests link the same project ID across separate checkout paths and sync project-scoped history between isolated SQLite stores.
+- [ ] Phase 3: verify project-scoped history and Git revision checks on two physical machines.
+- [ ] Phase 3: run read-only coding questions on real JS, TS, Python, and Java repositories with a live model and review its file citations.
+- [ ] Phase 3: verify the packed Tree-sitter WASM CLI on macOS and Linux CI.

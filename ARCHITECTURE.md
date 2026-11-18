@@ -108,6 +108,12 @@ part of Phase 3.
 
 ## Phase 3 — Repository retrieval and context engineering
 
+**Implementation status:** local workspace discovery, explicit project linking,
+project-scoped sync, read-only search and Tree-sitter maps, bounded role views,
+conversation compaction, and four-language coding fixtures pass locally. Live
+model and physical two-machine verification remain in
+[VERIFICATION_BACKLOG.md](VERIFICATION_BACKLOG.md).
+
 **Goal:** make coding mode understand a repository before it can change one.
 
 ### 3.1 Workspace discovery

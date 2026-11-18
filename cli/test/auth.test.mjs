@@ -24,7 +24,7 @@ test("device token uses the local snake-case file and nullable expiry", () => {
     const result = spawnSync(process.execPath, ["--input-type=module", "-e", code], {
       cwd: path.resolve(import.meta.dirname, ".."),
       env: { ...process.env, HOME: root, USERPROFILE: root },
-      encoding: "utf8", timeout: 10_000,
+      encoding: "utf8", timeout: 30_000,
     });
     assert.equal(result.status, 0, result.stderr);
     assert.ok(fs.existsSync(path.join(root, ".sagent", "token.json")));

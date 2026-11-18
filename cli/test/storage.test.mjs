@@ -23,7 +23,7 @@ test("versioned SQLite stores preserve data and project ID on reopen", (t) => {
   fs.mkdirSync(checkout);
   const first = openProjectStore(checkout, root);
   try {
-    assert.equal(first.db.prepare("PRAGMA user_version").get().user_version, 1);
+    assert.equal(first.db.prepare("PRAGMA user_version").get().user_version, 2);
     assert.equal(fs.existsSync(path.join(root, "projects", first.link.project_id, "state.sqlite")), true);
     first.db.prepare("INSERT INTO conversations VALUES (?, ?, ?, ?)").run("c1", "test", "now", "now");
     assert.throws(() => first.db.prepare("INSERT INTO messages VALUES (?, ?, ?, ?, ?)").run("m1", "missing", "user", "text", "now"), /FOREIGN KEY/);

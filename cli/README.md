@@ -22,6 +22,18 @@ sagent sync conflicts        Inspect divergent records
 sagent sync resolve <kind> <id> local|remote
 sagent whoami                Validate and show the current account
 sagent logout                Revoke the session and remove the local token
+sagent project inspect       Show branch, revision, language mix, and changes
+sagent project register      Register this checkout's stable project ID
+sagent project list          List project IDs on your account
+sagent project link <id>     Link another checkout to a registered ID
+sagent project sync          Sync coding chats and decisions for this project
+sagent repo glob <pattern>   List readable source paths
+sagent repo search <regex>   Find bounded source matches with line numbers
+sagent repo read <path>      Read source lines (optional --start/--end)
+sagent repo map [query]      Show a bounded Tree-sitter symbol map
+sagent code ask <question>   Ask a read-only question about this repository
+sagent code list             List local coding conversations
+sagent code decide <text>    Record an approved project decision
 ```
 
 Chat syncs when it opens and after each prompt. If the API is unreachable,
@@ -29,3 +41,10 @@ messages stay in the local outbox and `sagent sync` sends them later. A local
 history is bound to one account; use a separate SAgent home for another account.
 Only chat messages, decisions, and explicitly saved preferences sync. Source
 files and environment values remain local.
+
+Coding search uses `rg` (ripgrep). The CLI bundles Tree-sitter WASM grammars for
+JavaScript, TypeScript, TSX, Python, and Java, so installation needs no C++
+compiler. Their licenses are included in `assets/tree-sitter/`. Coding questions
+send only selected, bounded source excerpts to the model gateway; files stay in
+the checkout. Before resuming work on another machine, run `sagent project
+check-revision <sha>` against the expected Git commit.

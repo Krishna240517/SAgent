@@ -44,25 +44,37 @@ async function ownsProject(userId: string, projectId: string | null | undefined)
 }
 
 syncRouter.get("/projects", async (_req, res) => {
-  const projects = await authPrisma.syncProject.findMany({ where: { userId: res.locals.userId }, select: { id: true, createdAt: true } });
+  const projects = await authPrisma.syncProject.findMany({ where: { userId: res.locals.userId }, select: { id: true, remoteUrl: true, createdAt: true } });
   res.json({ projects });
 });
 
 syncRouter.post("/projects", async (req, res) => {
-  const parsed = z.object({ id }).safeParse(req.body);
+  const parsed = z.object({ id, remoteUrl: z.string().max(2048).nullable().optional() }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid project ID." });
+  const remoteUrl = parsed.data.remoteUrl;
+  if (remoteUrl && !isSafeRemote(remoteUrl)) return res.status(400).json({ error: "Invalid Git remote URL." });
   const userId: string = res.locals.userId;
   const existing = await authPrisma.syncProject.findUnique({ where: { id: parsed.data.id } });
   if (existing && existing.userId !== userId) return res.status(403).json({ error: "Project unavailable." });
   if (!existing) {
-    try { await authPrisma.syncProject.create({ data: { id: parsed.data.id, userId } }); }
+    try { await authPrisma.syncProject.create({ data: { id: parsed.data.id, userId, remoteUrl } }); }
     catch (error) {
       if ((error as { code?: string }).code === "P2002") return res.status(403).json({ error: "Project unavailable." });
       return res.status(500).json({ error: "Project registration failed." });
     }
+  } else if (remoteUrl !== undefined && existing.remoteUrl !== remoteUrl) {
+    await authPrisma.syncProject.update({ where: { id: existing.id }, data: { remoteUrl } });
   }
   res.json({ id: parsed.data.id });
 });
+
+function isSafeRemote(value: string) {
+  if (/^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[A-Za-z0-9._/-]+$/.test(value)) return true;
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password && !url.search && !url.hash;
+  } catch { return false; }
+}
 
 syncRouter.get("/pull", async (req, res) => {
   const parsed = z.object({ cursor: revisionText.default("0"), projectId: id.optional() }).safeParse(req.query);

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
+import { randomUUID } from "node:crypto";
 import { migrate } from "../dist/storage/migrations.js";
 import { addMessage, createConversation, getConversation, recentMessages, renameConversation } from "../dist/chat/store.js";
 import { listConflicts, resolveConflict, syncNow } from "../dist/sync/client.js";
@@ -57,6 +58,47 @@ test("sync retries safely and requires an explicit conflict choice", async () =>
   } finally {
     globalThis.fetch = originalFetch;
     db.close();
+  }
+});
+
+test("project-scoped history follows a shared project ID", async () => {
+  const a = new DatabaseSync(":memory:");
+  const b = new DatabaseSync(":memory:");
+  migrate(a, "project");
+  migrate(b, "project");
+  const projectId = randomUUID();
+  const previousFetch = globalThis.fetch;
+  const events = [];
+  const records = new Map();
+  let sequence = 0;
+  globalThis.fetch = async (url, options) => {
+    if (String(url).includes("/api/auth/get-session")) return Response.json({ user: { id: "same-user" } });
+    if (String(url).includes("/push")) {
+      const body = JSON.parse(options.body);
+      assert.equal(body.projectId, projectId);
+      const key = `${body.kind}:${body.recordId}`;
+      const previous = records.get(key);
+      assert.equal(body.baseRevision, previous?.revision || "0");
+      const event = { revision: String(++sequence), kind: body.kind, recordId: body.recordId, payload: body.payload };
+      records.set(key, event);
+      events.push(event);
+      return Response.json({ revision: event.revision });
+    }
+    const query = new URL(url).searchParams;
+    assert.equal(query.get("projectId"), projectId);
+    return Response.json({ events: events.filter((event) => Number(event.revision) > Number(query.get("cursor"))), cursor: String(sequence) });
+  };
+  try {
+    const conversation = createConversation(a);
+    addMessage(a, conversation.id, "user", "Project-specific discussion");
+    await syncNow(a, "token", projectId);
+    await syncNow(b, "token", projectId);
+    assert.equal(getConversation(b, conversation.id).id, conversation.id);
+    assert.equal(recentMessages(b, conversation.id)[0].content, "Project-specific discussion");
+  } finally {
+    globalThis.fetch = previousFetch;
+    a.close();
+    b.close();
   }
 });
 

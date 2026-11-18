@@ -57,7 +57,7 @@ export function bindSyncAccount(db: DatabaseSync, userId: string) {
   });
 }
 
-export async function syncNow(db: DatabaseSync, token: string): Promise<{ pushed: number; pulled: number; conflicts: number }> {
+export async function syncNow(db: DatabaseSync, token: string, projectId?: string): Promise<{ pushed: number; pulled: number; conflicts: number }> {
   const sessionResponse = await fetch(`${API_URL}/api/auth/get-session`, { headers: { authorization: `Bearer ${token}` } });
   if (!sessionResponse.ok) throw new Error(`Session check failed (${sessionResponse.status}).`);
   const session = await sessionResponse.json() as { user?: { id?: string } } | null;
@@ -68,7 +68,7 @@ export async function syncNow(db: DatabaseSync, token: string): Promise<{ pushed
   for (const item of pending) {
     const response = await request(token, "/push", { method: "POST", body: JSON.stringify({
       mutationId: item.id, kind: item.entity_type, recordId: item.entity_id,
-      baseRevision: revision(db, item.entity_type, item.entity_id), payload: JSON.parse(item.payload_json),
+      projectId, baseRevision: revision(db, item.entity_type, item.entity_id), payload: JSON.parse(item.payload_json),
     }) });
     const result = await response.json() as { revision?: string; remote?: { revision: string; payload: object }; error?: string };
     if (response.status === 409) {
@@ -90,7 +90,7 @@ export async function syncNow(db: DatabaseSync, token: string): Promise<{ pushed
 
   let cursor = (db.prepare("SELECT value FROM sync_state WHERE key = 'global_cursor'").get() as { value: string } | undefined)?.value || "0";
   while (true) {
-    const response = await request(token, `/pull?cursor=${cursor}`);
+    const response = await request(token, `/pull?cursor=${cursor}${projectId ? `&projectId=${encodeURIComponent(projectId)}` : ""}`);
     const result = await response.json() as { events?: Event[]; cursor?: string; error?: string };
     if (!response.ok || !result.events || !result.cursor) throw new Error(result.error || `Sync pull failed (${response.status}).`);
     for (const event of result.events) {

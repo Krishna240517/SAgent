@@ -6,6 +6,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { migrate } from "./migrations.js";
 import type { ProjectLink } from "./records.js";
+import { workspaceRoot } from "../repo/workspace.js";
 
 function openDatabase(file: string, kind: "global" | "project"): DatabaseSync {
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
@@ -27,16 +28,7 @@ export function openGlobalStore(root = path.join(os.homedir(), ".sagent")): Data
 }
 
 function canonicalPath(projectPath: string): string {
-  let root = projectPath;
-  try {
-    root = execFileSync("git", ["-C", projectPath, "rev-parse", "--show-toplevel"], {
-      encoding: "utf8", timeout: 2000, stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-  } catch {
-    // A directory without Git is still a valid local project.
-  }
-  const resolved = fs.realpathSync(root);
-  if (!fs.statSync(resolved).isDirectory()) throw new Error(`Project path is not a directory: ${resolved}`);
+  const resolved = workspaceRoot(projectPath);
   return process.platform === "win32" ? resolved.toLowerCase() : resolved;
 }
 
@@ -76,6 +68,40 @@ export function openProjectStore(
   } finally {
     global.close();
   }
-  // shortcut: checkout moves require explicit relinking, add it with cross-machine sync in Phase 2.
   return { db: openDatabase(path.join(root, "projects", link.project_id, "state.sqlite"), "project"), link };
+}
+
+export function linkProject(projectPath: string, projectId: string, root = path.join(os.homedir(), ".sagent")): ProjectLink {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId)) throw new Error("Invalid project ID.");
+  const localPath = canonicalPath(projectPath);
+  const remoteUrl = gitRemote(localPath);
+  const global = openGlobalStore(root);
+  try {
+    const current = global.prepare("SELECT * FROM project_links WHERE local_path = ?").get(localPath) as ProjectLink | undefined;
+    if (current && current.project_id !== projectId) {
+      const file = path.join(root, "projects", current.project_id, "state.sqlite");
+      if (fs.existsSync(file)) {
+        const db = openDatabase(file, "project");
+        try {
+          for (const table of ["conversations", "messages", "decisions", "tasks", "accepted_preferences", "summaries", "sync_outbox", "sync_conflicts"]) {
+            if ((db.prepare(`SELECT count(*) AS count FROM ${table}`).get() as { count: number }).count) {
+              throw new Error("This checkout has project history. Export or preserve it before linking a different ID.");
+            }
+          }
+        } finally { db.close(); }
+      }
+    }
+    const target = global.prepare("SELECT * FROM project_links WHERE project_id = ?").get(projectId) as ProjectLink | undefined;
+    if (target && target.local_path !== localPath && fs.existsSync(target.local_path)) {
+      throw new Error("That project ID is already linked to an existing checkout on this machine.");
+    }
+    global.exec("BEGIN IMMEDIATE");
+    try {
+      if (current && current.project_id !== projectId) global.prepare("DELETE FROM project_links WHERE local_path = ?").run(localPath);
+      if (target) global.prepare("UPDATE project_links SET local_path = ?, remote_url = ? WHERE project_id = ?").run(localPath, remoteUrl, projectId);
+      else global.prepare("INSERT INTO project_links VALUES (?, ?, ?, ?)").run(projectId, localPath, remoteUrl, new Date().toISOString());
+      global.exec("COMMIT");
+    } catch (error) { global.exec("ROLLBACK"); throw error; }
+    return global.prepare("SELECT * FROM project_links WHERE project_id = ?").get(projectId) as ProjectLink;
+  } finally { global.close(); }
 }

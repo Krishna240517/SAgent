@@ -28,3 +28,4 @@ jobs:
       - run: npm install -g "${{ runner.temp }}/sagent-cli-0.1.0.tgz"
       - run: sagent --version
       - run: sagent --help
+      - run: sagent repo map --budget 1000
