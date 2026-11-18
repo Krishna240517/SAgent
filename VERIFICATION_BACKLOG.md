@@ -22,4 +22,4 @@ them after all seven phases; keep local automated checks in each phase.
 
 - [ ] Phase 5: repeat the approved-plan handoff on two physical machines through the hosted API.
 - [ ] Phase 5: exercise companion and coding roles against the configured model and review their decisions on a real task.
-- [ ] Phase 5: run the packed LangGraph CLI on Windows, macOS, and Linux in CI.
+- [x] Phase 5: packed CLI installation and smoke checks passed on Windows, macOS, and Linux ([CI run](https://github.com/Krishna240517/SAgent/actions/runs/44332348478)).
