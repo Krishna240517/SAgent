@@ -43,7 +43,11 @@ test("workspace inventory respects Git ignores and rejects secret or escaping re
   assert.equal(info.languageMix.Java, 1);
   assert.ok(info.buildFiles.includes("package.json"));
   assert.ok(info.ignoreFiles.includes(".gitignore"));
-  assert.equal(safeSourceFile(info.root, "src/main.ts"), fs.realpathSync(path.join(repo, "src/main.ts")));
+  const source = safeSourceFile(info.root, "src/main.ts");
+  assert.deepEqual(
+    [fs.statSync(source).dev, fs.statSync(source).ino],
+    [fs.statSync(path.join(repo, "src/main.ts")).dev, fs.statSync(path.join(repo, "src/main.ts")).ino],
+  );
   assert.throws(() => safeSourceFile(info.root, ".env"), /excluded/);
   assert.throws(() => safeSourceFile(info.root, ".aws/credentials"), /outside/);
   assert.throws(() => safeSourceFile(info.root, "../outside.txt"), /outside/);
