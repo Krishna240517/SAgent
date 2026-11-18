@@ -29,8 +29,9 @@ jobs:
         env:
           SOCKET: ${{ steps.docker.outputs.sock }}
         run: |
-          test -S "$SOCKET"
-          sudo ln -sfn "$SOCKET" /var/run/docker.sock
+          socket_path=${SOCKET#unix://}
+          test -S "$socket_path"
+          sudo ln -sfn "$socket_path" /var/run/docker.sock
           mkdir -p "$HOME/sagent-tmp"
           echo "TMPDIR=$HOME/sagent-tmp" >> "$GITHUB_ENV"
       - name: Install sandbox images
