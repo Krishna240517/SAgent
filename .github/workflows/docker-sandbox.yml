@@ -1,0 +1,49 @@
+name: Docker sandbox
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/verify-docker-sandbox]
+
+permissions:
+  contents: read
+
+jobs:
+  sandbox:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - if: runner.os == 'macOS'
+        id: docker
+        uses: docker/setup-docker-action@3f1ab1ab0e29231562e4db4ca600c1a49653bac6 # v5
+      - if: runner.os == 'macOS'
+        name: Use the local Docker socket and a VM-shared snapshot directory
+        env:
+          SOCKET: ${{ steps.docker.outputs.sock }}
+        run: |
+          test -S "$SOCKET"
+          sudo ln -sfn "$SOCKET" /var/run/docker.sock
+          mkdir -p "$HOME/sagent-tmp"
+          echo "TMPDIR=$HOME/sagent-tmp" >> "$GITHUB_ENV"
+      - name: Install sandbox images
+        run: |
+          for image in node:22-alpine python:3.13-alpine eclipse-temurin:21-jdk-alpine; do
+            docker --context default pull "$image"
+          done
+      - run: npm ci && npm run build
+        working-directory: cli
+      - name: Require all sandbox checks to run
+        working-directory: cli
+        shell: bash
+        run: |
+          set -eo pipefail
+          node --test --test-reporter=tap --test-concurrency=1 test/sandbox.test.mjs test/workflow.test.mjs | tee "$RUNNER_TEMP/sandbox.tap"
+          grep -Fx '# skipped 0' "$RUNNER_TEMP/sandbox.tap"

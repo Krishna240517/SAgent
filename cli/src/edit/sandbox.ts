@@ -61,9 +61,18 @@ export function runSandbox(root: string, kind: CheckKind, timeoutMs = 90_000, su
   }
   const unavailable = sandboxAvailability(kind);
   if (unavailable) return { status: "unavailable", exitCode: null, output: unavailable };
-  const snapshot = fs.mkdtempSync(path.join(os.tmpdir(), "sagent-sandbox-"));
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "sagent-sandbox-"));
+  // Keep the host directory private. Only its child is mounted for the container UID.
+  const snapshot = path.join(temporary, "input");
+  function makeInputDirectory(directory: string) {
+    if (fs.existsSync(directory)) return;
+    makeInputDirectory(path.dirname(directory));
+    fs.mkdirSync(directory);
+    fs.chmodSync(directory, 0o755);
+  }
   const name = `sagent-${randomUUID()}`;
   try {
+    makeInputDirectory(snapshot);
     const workspace = discoverWorkspace(root);
     if (focus && (!workspace.files.includes(directory ? `${directory}/${focus}` : focus) ||
         !safeSourceFile(workspace.root, directory ? `${directory}/${focus}` : focus))) throw new Error("Focused test is outside the workspace.");
@@ -74,8 +83,9 @@ export function runSandbox(root: string, kind: CheckKind, timeoutMs = 90_000, su
       bytes += fs.statSync(source).size;
       if (bytes > 128 * 1024 * 1024) throw new Error("Workspace exceeds the 128 MiB sandbox snapshot limit.");
       const destination = path.join(snapshot, file);
-      fs.mkdirSync(path.dirname(destination), { recursive: true });
+      makeInputDirectory(path.dirname(destination));
       fs.copyFileSync(source, destination);
+      if (process.platform !== "win32") fs.chmodSync(destination, fs.statSync(source).mode & 0o111 ? 0o755 : 0o644);
     }
     const argv = kind === "java:compile" ? [...check.argv, ...workspace.files.filter((file) => file.endsWith(".java") && (!directory || file.startsWith(`${directory}/`)))
       .map((file) => directory ? file.slice(directory.length + 1) : file)] : focus ? [...check.argv, focus] : check.argv;
@@ -93,7 +103,7 @@ export function runSandbox(root: string, kind: CheckKind, timeoutMs = 90_000, su
     return { status: result.status === 0 ? "pass" : "fail", exitCode: result.status, output };
   } finally {
     docker(["rm", "-f", name]);
-    if (path.dirname(snapshot) !== path.resolve(os.tmpdir())) throw new Error("Unexpected sandbox cleanup path.");
-    fs.rmSync(snapshot, { recursive: true, force: true });
+    if (path.dirname(temporary) !== path.resolve(os.tmpdir())) throw new Error("Unexpected sandbox cleanup path.");
+    fs.rmSync(temporary, { recursive: true, force: true });
   }
 }

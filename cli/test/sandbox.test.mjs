@@ -26,6 +26,7 @@ test('isolated', () => {
   assert.equal(fs.existsSync('/var/run/docker.sock'), false);
   assert.throws(() => fs.writeFileSync('/input/test/sandbox.test.js', 'escape'));
 });\n`);
+  if (process.platform !== "win32") fs.chmodSync(file, 0o600);
   execFileSync("git", ["-C", root, "add", ".gitignore", "test/sandbox.test.js"]);
   const originalPath = process.env.PATH;
   process.env.PATH = "";
