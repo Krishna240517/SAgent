@@ -15,6 +15,7 @@ them after all seven phases; keep local automated checks in each phase.
 - [ ] Phase 3: run read-only coding questions on real JS, TS, Python, and Java repositories with a live model and review its file citations.
 - [x] Phase 3: packed Tree-sitter and Ripgrep CLI passed on Windows, macOS, and Linux ([CI run](https://github.com/Krishna240517/SAgent/actions/runs/44318042005)).
 - [x] Phase 4: local Docker fixtures verify one approved edit each in JavaScript, TypeScript, Python, and Java; rejected edits, failed checks, and timeout isolation have local tests.
+- [x] Phase 4: CLI typecheck, test, packed install, and smoke checks passed on Windows, macOS, and Linux ([CI run](https://github.com/Krishna240517/SAgent/actions/runs/44327899317)). Docker fixture tests skip when Docker or images are unavailable.
 - [ ] Phase 4: test `sagent code fix` with a live model and interactive approval on a real repository.
 - [ ] Phase 4: run Docker sandbox checks on Windows, macOS, and Linux hosts with their required images installed.
 - [ ] Phase 4: verify real npm, Python dependency, Maven, and Gradle projects with offline dependencies available in the sandbox.
