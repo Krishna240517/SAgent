@@ -23,7 +23,7 @@ The cross-platform results below are historical.
 - [x] Phase 4: run Docker sandbox checks on Windows, macOS, and Linux hosts with their required images installed. Native Ubuntu and Intel macOS passed the required Docker job on [run 44397940735](https://github.com/Krishna240517/SAgent/actions/runs/44397940735).
   Windows with Docker Desktop and Ubuntu under WSL2 each passed all seven sandbox and edit-workflow tests with zero skips. Both runs used local Node, Python, and Java sandbox images.
 - [ ] Phase 4: verify real npm, Python dependency, Maven, and Gradle projects with offline dependencies available in the sandbox.
-  On Windows, the prepared SAgent npm image imported TypeScript offline. Python (six) and Maven (JUnit) dependency fixtures also passed offline. SAgent's full sandbox typecheck reaches the compiler but cannot resolve `src/commands/auth/token.ts`, which the credential filename filter excludes. Full upstream project builds remain open.
+  On Windows, the prepared SAgent npm image imported TypeScript offline. Python (six) and Maven (JUnit) dependency fixtures also passed offline. Gradle compiled the offline JUnit fixture but reached the 180-second limit before returning a test result. SAgent's full sandbox typecheck reaches the compiler but cannot resolve `src/commands/auth/token.ts`, which the credential filename filter excludes. Full upstream project builds remain open.
 
 - [ ] Phase 5: repeat the approved-plan handoff on two physical machines through the hosted API. Deferred until a second machine is available.
 - [ ] Phase 5: exercise companion and coding roles against the configured model and review their decisions on a real task.
