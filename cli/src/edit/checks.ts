@@ -38,7 +38,7 @@ export function detectChecks(root: string, changedPath: string): { directory: st
     return { directory, focus, checks };
   }
   if (extension === ".py") {
-    const project = findBuild(["pyproject.toml", "requirements.txt"]);
+    const project = findBuild(["pyproject.toml", "setup.py", "setup.cfg", "requirements.txt"]);
     if (project) directory = project.directory;
     const prefix = directory ? `${directory}/` : "";
     const focus = `test_${path.posix.basename(changedPath)}`;

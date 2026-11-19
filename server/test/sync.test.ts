@@ -10,9 +10,11 @@ import { bearer } from "better-auth/plugins";
 
 test("sync scopes projects and records to the bearer user", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "sagent-sync-"));
-  const previousEnv = Object.fromEntries(["USERPROFILE", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL", "OPENAI_API_KEY", "OPENAI_BASE_URL"]
+  const previousEnv = Object.fromEntries(["USERPROFILE", "HOME", "AUTH_DATABASE_URL", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL", "OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_MODEL", "OPENAI_FALLBACK_MODEL"]
     .map((key) => [key, process.env[key]]));
   process.env.USERPROFILE = root;
+  process.env.HOME = root;
+  process.env.AUTH_DATABASE_URL = "";
   process.env.BETTER_AUTH_SECRET = "sync-test-secret-long-enough-for-auth";
   process.env.BETTER_AUTH_URL = "http://localhost:6005";
   const { connectAuthDB, disconnectAuthDB, authPrisma } = await import("../src/config/db");
@@ -43,7 +45,11 @@ test("sync scopes projects and records to the bearer user", async () => {
     app.use(express.json());
     app.use("/api/sync", syncRouter);
     let forwarded: { messages?: unknown; preferences?: unknown; key?: string; input?: unknown; instructions?: string } = {};
+    const models: string[] = [];
+    let primaryStatus = 200;
     app.post("/responses", (req, res) => {
+      models.push(req.body.model);
+      if (req.body.model === "primary" && primaryStatus !== 200) return res.sendStatus(primaryStatus);
       forwarded = { key: req.header("authorization") || "", input: req.body.input, instructions: req.body.instructions };
       res.type("text/event-stream").send('event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"Hello"}\n\nevent: response.completed\ndata: {"type":"response.completed"}\n\n');
     });
@@ -52,6 +58,8 @@ test("sync scopes projects and records to the bearer user", async () => {
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("Test server did not bind.");
     process.env.OPENAI_API_KEY = "test-model-key";
+    process.env.OPENAI_MODEL = "primary";
+    process.env.OPENAI_FALLBACK_MODEL = "backup";
     process.env.OPENAI_BASE_URL = `http://127.0.0.1:${address.port}`;
     const call = (user: number, route: string, body?: object) => fetch(`http://127.0.0.1:${address.port}/api/sync${route}`, {
       method: body ? "POST" : "GET",
@@ -98,6 +106,14 @@ test("sync scopes projects and records to the bearer user", async () => {
     expect(forwarded.instructions).toContain("untrusted data");
     expect(forwarded.instructions).toContain("decision are user-approved project decisions");
     expect(forwarded.instructions).toContain("Cite source IDs");
+    expect(models).toEqual(["primary", "primary"]);
+    const chat = () => fetch(chatUrl, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${tokens[0]}` }, body: chatBody });
+    primaryStatus = 429;
+    expect(await (await chat()).text()).toContain('"delta":"Hello"');
+    expect(models.splice(2)).toEqual(["primary", "backup"]);
+    primaryStatus = 401;
+    expect((await chat()).status).toBe(502);
+    expect(models.splice(2)).toEqual(["primary"]);
   } finally {
     if (server) await new Promise<void>((resolve) => server!.close(() => resolve()));
     await disconnectAuthDB();

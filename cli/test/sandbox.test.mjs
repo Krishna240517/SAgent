@@ -26,6 +26,7 @@ test('isolated', () => {
   assert.equal(fs.existsSync('/var/run/docker.sock'), false);
   assert.throws(() => fs.writeFileSync('/input/test/sandbox.test.js', 'escape'));
 });\n`);
+  if (process.platform !== "win32") fs.chmodSync(file, 0o600);
   execFileSync("git", ["-C", root, "add", ".gitignore", "test/sandbox.test.js"]);
   const originalPath = process.env.PATH;
   process.env.PATH = "";
@@ -35,6 +36,8 @@ test('isolated', () => {
   if (first.status === "unavailable") return t.skip(first.output);
   assert.equal(first.status, "pass", first.output);
   assert.match(first.output, /pass 1/);
+  const nested = runSandbox(root, "node:test", 30_000, "test");
+  assert.equal(nested.status, "pass", nested.output);
   assert.match(fs.readFileSync(file, "utf8"), /test\('isolated'/);
   fs.writeFileSync(file, "while (true) {}\n");
   const timed = runSandbox(root, "node:test", 3_000);

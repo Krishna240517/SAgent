@@ -49,7 +49,7 @@ Repository files, tool output, MCP responses, issues, and logs are untrusted inp
 ## Phase 1 — Product foundation and package boundary
 
 **Implementation status:** Windows, macOS, and Linux clean-checkout package gates
-pass in CI. `@sagent/cli` is not yet reserved on npm.
+pass in CI. Standalone installation is verified separately in Phase 7.
 
 **Goal:** make SAgent a reproducible, publishable CLI project before adding agent behavior.
 
@@ -62,7 +62,7 @@ pass in CI. `@sagent/cli` is not yet reserved on npm.
 ### 1.2 Package layout and runtime
 
 - Extract the CLI from `server/src/cli` into a publishable Node-compatible package. Keep the API private. Share only types actually needed on both sides.
-- Build JavaScript before packaging; publish compiled files, not TypeScript source or a Bun-only shebang. Reserve a real package name and expose the `sagent` executable through npm's [`bin` field](https://docs.npmjs.com/files/package.json/).
+- Build JavaScript before packaging. Keep the `sagent` package entry point for development and the packed CLI smoke tests.
 - Add version, `engines`, `files`, build, typecheck, and package scripts. Verify built-in SQLite and packed installs on the supported operating systems.
 
 ### 1.3 Local storage foundation
@@ -199,6 +199,8 @@ The CLI exposes the sequential supervisor through `sagent code run`. SQLite stor
 
 **Goal:** connect external developer systems after local coding is reliable.
 
+The CLI exposes the broker through `sagent mcp`. Local tests cover all five connector policies. Live external checks remain in [VERIFICATION_BACKLOG.md](VERIFICATION_BACKLOG.md).
+
 ### 6.1 MCP broker
 
 - Support pinned local stdio and authenticated remote MCP servers. Discover only enabled tools, validate input schemas, bound output, log calls, and apply SAgent's own tool/approval policy.
@@ -232,38 +234,23 @@ The CLI exposes the sequential supervisor through `sagent code run`. SQLite stor
 - Containerize the auth/model/sync API using a production image with a non-root process, health checks, secret injection, and database migrations before traffic. Use Docker Compose with PostgreSQL for local integration tests; deploy the API image and managed PostgreSQL separately in production.
 - Keep the hosted API away from users' workspaces and Docker sockets. Add backups, restore drills, logs without secrets, rate limits, and operational alerts.
 
-### 7.2 NPM release artifact
+### 7.2 Standalone GitHub Release artifacts
 
-- Publish a scoped CLI package to the public npm registry after reserving its name. Proposed name: `@sagent/cli`; proposed executable: `sagent`. These names are **not yet reserved or published**.
-- Remove `private: true` from the CLI package, add a real version and compiled `bin`, and use an explicit package file list. Test `npm pack` and install the packed artifact in clean Windows, macOS, and Linux environments. npm creates the Windows command shim from the package [`bin` entry](https://docs.npmjs.com/files/package.json/).
-- Publish only after CI passes and a release is approved; use registry provenance where supported. See [npm package requirements](https://docs.npmjs.com/about-package-json-and-package-lock-json-files/) and [GitHub's npm publishing guide](https://docs.github.com/en/actions/tutorials/publish-packages/publish-nodejs-packages).
+- Build a bundle for each supported OS and CPU architecture containing the compiled CLI, a compatible Node.js runtime, production dependencies, the platform's Ripgrep executable, Tree-sitter assets, and their licenses.
+- Attach the Windows installer, macOS and Linux archives, versioned shell installer, and SHA-256 checksums to the approved tagged GitHub Release. Keep the existing npm pack checks as development CI coverage.
 
 ### 7.3 Install commands and onboarding
 
-Once the package name is reserved and published, use these commands with a supported Node.js installation.
-
-**Windows CMD or PowerShell:**
-
-```text
-npm install -g @sagent/cli
-sagent doctor
-sagent login
-```
-
-**macOS or Linux shell:**
-
-```sh
-npm install -g @sagent/cli
-sagent doctor
-sagent login
-```
+- Windows users install from CMD or PowerShell with `winget install --id SAgent.CLI --exact` once WinGet accepts the manifest for the release installer. Confirm the identifier during submission.
+- macOS and Linux users download and run the shell installer for a specific release. It selects the matching archive, verifies its checksum, and exposes `sagent` on the user's PATH.
+- Test each installation on a clean host without preinstalled Node.js or npm. From a fresh terminal, run `sagent doctor`, search a fixture for a known symbol with `sagent repo search`, and verify a Tree-sitter repo map contains that symbol.
 
 - `sagent doctor` checks Node, Git, login/API reachability, local database migration status, Docker availability, and optional MCP prerequisites. It distinguishes required components from optional integrations.
-- Document uninstall, update, backup, and rollback. Add a branded `install.ps1` or `install.cmd` only if it solves a real installation problem; do not make users pipe an unaudited remote script into a shell.
+- Document uninstall, update, backup, and rollback for each installer.
 
 ### 7.4 Final release gate
 
-- A new user installs from the published package, logs in, chats and syncs on a second machine, completes and resumes a sandboxed coding task, and exercises each MCP connector at its approved permission level.
+- A new user installs from the public release, logs in, chats and syncs on a second machine, completes and resumes a sandboxed coding task, and exercises each MCP connector at its approved permission level.
 - Upgrade from the previous release preserves local history and project links. The API can restore from backup. The CLI reports its version and the compatible API range.
 
 ## Definition of complete

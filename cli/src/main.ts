@@ -8,6 +8,7 @@ import { backupLegacyPGlite } from "./storage/legacy.js";
 import { chat } from "./chat/commands.js";
 import { sync } from "./sync/commands.js";
 import { project, repo } from "./repo/commands.js";
+import { mcp } from "./mcp/commands.js";
 import { code } from "./context/commands.js";
 
 
@@ -25,6 +26,7 @@ const main = async() => {
     program.addCommand(project);
     program.addCommand(repo);
     program.addCommand(code);
+    program.addCommand(mcp);
     program.command("backup-legacy").description("Back up and verify existing local PGlite files").action(() => {
         const result = backupLegacyPGlite();
         console.log(result.backupPath ? `Verified ${result.filesVerified} files in ${result.backupPath}` : "No legacy PGlite directories found.");

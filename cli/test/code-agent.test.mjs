@@ -24,6 +24,7 @@ test("read-only code questions cite implementations and callers in four language
   fs.writeFileSync(path.join(repo, "src", "main.js"), "import { tool } from './tool.js';\nexport const result = tool();\n");
   fs.writeFileSync(path.join(repo, "src", "worker.py"), "def process_item():\n    return 1\n");
   fs.writeFileSync(path.join(repo, "src", "use_worker.py"), "from worker import process_item\nresult = process_item()\n");
+  fs.writeFileSync(path.join(repo, "package-lock.json"), Array(12).fill('{"tool": "dependency metadata"}').join("\n"));
   fs.writeFileSync(path.join(repo, "src", "Worker.java"), "class Worker { void processItem() {} }\n");
   fs.writeFileSync(path.join(repo, "src", "UseWorker.java"), "class UseWorker { void run() { new Worker().processItem(); } }\n");
   execFileSync("git", ["-C", repo, "add", ".gitignore", "src"]);
@@ -51,7 +52,7 @@ test("read-only code questions cite implementations and callers in four language
       return new Response(events, { status: 200, headers: { 'content-type': 'text/event-stream' } });
     };
     const { code } = await import(pathToFileURL(process.env.SAGENT_CODE_ENTRY).href);
-    for (const example of cases) await code.parseAsync(['ask', 'Where is ' + example.symbol + ' called?', '--new'], { from: 'user' });
+    for (const example of cases) await code.parseAsync(['ask', 'Explain ' + example.symbol + ' and identify a caller. Cite file paths and line numbers for each claim. Keep the answer under 160 words.', '--new'], { from: 'user' });
   `;
   const result = spawnSync(process.execPath, ["--input-type=module", "-e", script], {
     cwd: repo, env: { ...process.env, HOME: home, USERPROFILE: home,

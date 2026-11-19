@@ -3,6 +3,20 @@
 Node.js 22.13 or newer is required. Build with `npm ci && npm run build`.
 The package exposes `sagent`. `sagent --help` works offline.
 
+For projects with dependencies, run `sagent code prepare npm --directory cli`
+from this checkout, or choose `python`, `maven`, or `gradle` and the appropriate
+workspace-relative directory. Review the displayed container command before
+approving network access and package/build scripts. npm requires a lockfile,
+Python uses requirements.txt, and Maven/Gradle preparation runs the project's
+tests to populate their offline caches.
+
+Subsequent sandbox tests use the prepared image with networking disabled.
+Manifest and lockfile changes select a new image and require preparation again.
+Run preparation again after changing local dependency source or build logic
+outside those files. Preparation has a 15-minute timeout. Sandbox scratch space
+is limited to 512 MiB per mount. Prepared-image test containers have a 2 GiB
+memory limit and a 256-process/thread limit. Larger dependency sets may exceed these limits.
+
 The CLI uses `~/.sagent/` for its local files. Set `SAGENT_API_URL` to override
 the development API URL. The API must be running for login, model responses,
 and sync. Existing chats remain readable offline.
@@ -77,3 +91,35 @@ execution begins, approvals and execution checkpoints belong to the original
 checkout. Project sync carries the assignment, status and approved summary.
 Use `sagent code decide "new policy" --supersedes <decision-id>` to retain the
 previous decision while giving future roles the new one.
+
+### MCP connectors
+
+Use `sagent mcp setup hub`, `sagent mcp setup eks`, or `sagent mcp setup kubernetes` for interactive, read-only setup. Have the installed MCP server path and its trusted SHA-256 ready. Hub masks PAT entry and saves a supplied token in `~/.sagent/hub.pat`. An exported `HUB_PAT_TOKEN` takes precedence, followed by the saved PAT and then the private env file. EKS uses an existing AWS CLI profile, and local Kubernetes uses an existing kubeconfig. Setup saves the connection settings locally. Provider authentication is checked when you call an action.
+
+Run `sagent mcp list` to see enabled connectors and `sagent mcp list github` to see actions supported by the connected server. `sagent mcp call github issue '{"issue_number":42}'` reads an issue. On PowerShell, pass the JSON as a single argument. An action takes JSON fields only. The broker supplies the target from your user configuration. Inspect outcomes with `sagent code actions`.
+
+Create `~/.sagent/mcp.json` with only the entries you need. Replace the example paths, identities and SHA-256 values with values from your trusted local installations. Use `Get-FileHash` on Windows or `shasum -a 256` on macOS/Linux. Keep the executables, their dependencies, and this configuration outside the project checkout. These examples use Linux path syntax.
+
+```json
+{
+  "github": {"account":"your-login","owner":"your-org","repo":"demo","base":"main","branch":"sagent-fix"},
+  "docker": {"docker":"/usr/bin/docker","dockerSha256":"<sha256>","daemon":"<engine-id>","account":"yourhubuser","repository":"demo","tag":"dev"},
+  "hub": {"server":"/opt/docker-hub-mcp/dist/index.js","sha256":"<sha256>","account":"yourhubuser","repository":"demo"},
+  "kubernetes": {"server":"/opt/bin/kubernetes-mcp-server","sha256":"<sha256>","kubectl":"/usr/bin/kubectl","kubeconfig":"/home/user/.kube/sagent","context":"dev","cluster":"dev","namespace":"app","account":"system:serviceaccount:app:sagent"},
+  "eks": {"server":"/opt/eks-mcp/bin/awslabs.eks-mcp-server","sha256":"<sha256>","aws":"/usr/local/bin/aws","account":"123456789012","profile":"eks-dev","region":"us-east-1","cluster":"demo","namespace":"app"}
+}
+```
+
+Each entry starts read-only. Set `"writes":"true"` on an individual entry to expose its write actions. Each invocation still needs interactive approval for the exact arguments and target. A write interrupted after dispatch may already have happened. Inspect the target before retrying.
+
+| Connector | Operations and setup |
+| --- | --- |
+| GitHub | Official remote MCP endpoint. Use a fine-grained PAT restricted to the selected repository and required permissions. Read a repository, issue or PR. Approved actions can create/update issues, create the configured branch, push files to it and open a PR against the configured base. |
+| Local Docker | Set the engine ID from `docker --context default info --format '{{.ID}}'`. Use a local Linux engine. Inspect an image, build a filtered workspace snapshot, start the configured image, delete a container labeled for it, or push the configured image to Docker Hub. A started container persists until removed. |
+| Docker Hub | Install the official docker/hub-mcp stdio server into a trusted directory with its lockfile. Inspect a repository, list tags, create a private repository, or update its description. Use a token scoped to those operations. |
+| Kubernetes | Install the containers/kubernetes-mcp-server binary and kubectl. Bind the identity with a Role and RoleBinding in the selected namespace. Reads list pods. Approved operations can apply a ConfigMap, delete a named pod, run a fixed identity check in a pod, or confirm a Secret exists with its contents withheld. |
+| EKS | Install the AWS Labs EKS MCP server at a pinned version and configure the named AWS profile. Scope its IAM role to the cluster and its Kubernetes RBAC to the namespace. Reads list or inspect pods. An approved delete targets one named pod. |
+
+The CLI reads `SAGENT_GITHUB_MCP_TOKEN` and `HUB_PAT_TOKEN` from the process environment or `~/.sagent/.env`. For development, set `SAGENT_MCP_ENV_FILE` to the absolute path of the private env file containing those placeholders. AWS authentication uses the named profile. Kubernetes uses the configured kubeconfig. Credentials belong on the operator's machine. The action log records the target, operation, and outcome. Connector output is displayed as bounded, untrusted data.
+
+To send one connector read to the model, use `sagent code ask "Summarize issue 42" --mcp-read github.issue --mcp-input '{"issue_number":42}'`. The context engine labels the result with its local action ID and applies the coding context budget.

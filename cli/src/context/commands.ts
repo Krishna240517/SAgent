@@ -29,9 +29,24 @@ async function model(token: string, question: string, context?: string, echo = t
 }
 
 export const code = new Command("code").description("Ask about or safely edit this repository");
+code.command("prepare <manager>").description("Build dependencies with approved network access for offline sandbox tests")
+  .option("--directory <path>", "Project directory relative to the workspace root", "")
+  .action(async (manager: string, options: { directory: string }) => {
+    if (!process.stdin.isTTY) throw new Error("Dependency preparation requires an interactive terminal.");
+    const { dependencyPlans, prepareDependencies } = await import("../edit/dependencies.js");
+    if (!Object.hasOwn(dependencyPlans, manager)) throw new Error("Choose npm, python, maven, or gradle.");
+    const { workspaceRoot } = await import("../repo/workspace.js");
+    const plan = dependencyPlans[manager as keyof typeof dependencyPlans];
+    console.log(`Workspace: ${workspaceRoot()}\nDirectory: ${options.directory || "."}\nImage: ${plan.image}\nCommand: ${plan.install}`);
+    const approved = await confirm({ message: "Allow this container build to download dependencies and execute package/build scripts?", initialValue: false });
+    if (approved !== true) return;
+    console.log(prepareDependencies(workspaceRoot(), options.directory, manager as keyof typeof dependencyPlans, true));
+  });
 code.command("ask <question>").description("Answer with bounded local source context").option("--new", "Start a new coding conversation")
   .option("--conversation <id>", "Continue a specific coding conversation")
-  .action(async (question: string, options: { new?: boolean; conversation?: string }) => {
+  .option("--mcp-read <connector.action>", "Send this MCP read result to the model as project evidence")
+  .option("--mcp-input <json>", "Arguments for the selected MCP read", "{}")
+  .action(async (question: string, options: { new?: boolean; conversation?: string; mcpRead?:string; mcpInput:string }) => {
     const token = await getStoredToken();
     if (!token) throw new Error("Run sagent login first.");
     const opened = openProjectStore();
@@ -47,6 +62,13 @@ code.command("ask <question>").description("Answer with bounded local source con
       const prior = db.prepare("SELECT * FROM messages WHERE conversation_id = ? AND id != ? ORDER BY rowid DESC LIMIT 10").all(conversation.id, current.id) as Message[];
       const summary = latestSummary(db, conversation.id);
       const evidence = collectEvidence(opened.link.local_path, question, index);
+      if(options.mcpRead) {
+        const parts=options.mcpRead.split(".");
+        if(parts.length!==2) throw new Error("Expected connector.action.");
+        const {callMcp}=await import("../mcp/commands.js");
+        const result=await callMcp(parts[0]!,parts[1]!,options.mcpInput,true);
+        evidence.unshift({id:"mcp:"+result.id,kind:"external",content:result.untrusted || ""});
+      }
       const sources: ContextSource[] = [
         ...decisions.map((item) => ({ id: `decision:${item.id}`, kind: "decision" as const, content: item.content })),
         ...(summary ? [{ id: `summary:${summary.id}`, kind: "summary" as const, content: summary.content }] : []),
@@ -56,7 +78,7 @@ code.command("ask <question>").description("Answer with bounded local source con
       const context = buildContext(question, sources, "coder");
       const answer = await model(token.access_token, question, context.context);
       if (answer) addMessage(db, conversation.id, "assistant", answer);
-      const paths = context.sourceIds.filter((item) => item.startsWith("file:") || item.startsWith("search:")).slice(0, 8);
+      const paths = context.sourceIds.filter((item) => item.startsWith("file:") || item.startsWith("search:") || item.startsWith("mcp:")).slice(0, 8);
       if (paths.length) console.log(`Sources: ${paths.join(", ")}`);
       console.log(`Conversation: ${conversation.id}`);
     } finally { db.close(); }

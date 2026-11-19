@@ -30,11 +30,13 @@ test("check detection selects repository scripts and language tools", (t) => {
     "web/package.json": JSON.stringify({ scripts: { test: "node --test", typecheck: "tsc --noEmit" } }),
     "web/src/app.ts": "export const answer = 1;\n",
     "python/math.py": "answer = 1\n", "python/test_math.py": "from unittest import TestCase\n",
+    "legacy/setup.py": "", "legacy/pkg/value.py": "value = 1\n", "legacy/test_value.py": "import unittest\n",
     "maven/pom.xml": "<project/>\n", "maven/App.java": "class App {}\n",
     "gradle/build.gradle": "plugins { id 'java' }\n", "gradle/App.java": "class App {}\n",
   });
   assert.deepEqual(detectChecks(root, "web/src/app.ts"), { directory: "web", focus: "", checks: ["npm:test", "npm:typecheck"] });
   assert.deepEqual(detectChecks(root, "python/math.py"), { directory: "python", focus: "test_math.py", checks: ["python:focused", "python:unittest"] });
+  assert.deepEqual(detectChecks(root, "legacy/pkg/value.py"), { directory: "legacy", focus: "test_value.py", checks: ["python:focused", "python:unittest"] });
   assert.deepEqual(detectChecks(root, "maven/App.java"), { directory: "maven", focus: "", checks: ["maven:test"] });
   assert.deepEqual(detectChecks(root, "gradle/App.java"), { directory: "gradle", focus: "", checks: ["gradle:test"] });
 });

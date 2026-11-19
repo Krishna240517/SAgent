@@ -2,10 +2,10 @@ import { SymbolIndex } from "../repo/symbols.js";
 import { readRange, searchText } from "../repo/tools.js";
 
 export type Role = "planner" | "coder" | "tester" | "reviewer";
-export type ContextSource = { id: string; kind: "decision" | "summary" | "message" | "map" | "search" | "file" | "tool"; content: string };
+export type ContextSource = { id: string; kind: "decision" | "summary" | "message" | "map" | "search" | "file" | "tool" | "external"; content: string };
 const scopes: Record<Role, Set<ContextSource["kind"]>> = {
   planner: new Set(["decision", "summary", "message", "map", "search"]),
-  coder: new Set(["decision", "summary", "message", "map", "search", "file"]),
+  coder: new Set(["decision", "summary", "message", "map", "search", "file", "external"]),
   tester: new Set(["decision", "summary", "map", "search", "file", "tool"]),
   reviewer: new Set(["decision", "summary", "map", "search", "file", "tool"]),
 };
@@ -37,13 +37,20 @@ export function buildContext(request: string, sources: ContextSource[], role: Ro
 export function collectEvidence(root: string, request: string, index: SymbolIndex): ContextSource[] {
   // shortcut: three identifier-like terms drive search; add model-written queries when natural-language questions miss code.
   const stop = new Set(["where", "which", "what", "does", "this", "that", "with", "from", "called", "implemented", "implementation", "function", "class", "file", "code", "please", "find", "show"]);
+  const names = new Set(index.entries().filter((entry) => entry.kind === "definition").map((entry) => entry.name));
   const terms = [...new Set(request.match(/[A-Za-z_][A-Za-z_0-9]{2,}/g) || [])]
     .filter((word) => !stop.has(word.toLowerCase()))
-    .sort((a, b) => Number(/[A-Z_]/.test(b)) - Number(/[A-Z_]/.test(a)) || b.length - a.length)
+    .sort((a, b) => Number(names.has(b)) - Number(names.has(a)) ||
+      Number(/[A-Z_]/.test(b)) - Number(/[A-Z_]/.test(a)) || b.length - a.length)
     .slice(0, 3);
   const found = new Map<string, { path: string; line: number; text: string }>();
+  for (const entry of index.entries().filter((entry) => entry.kind === "definition" && terms.includes(entry.name))) {
+    found.set(`${entry.path}:${entry.line}`, { path: entry.path, line: entry.line, text: entry.signature });
+  }
+  const sourcePaths = new Set(index.entries().map((entry) => entry.path));
   for (const term of terms) {
-    for (const item of searchText(root, `\\b${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, 30)) {
+    for (const item of searchText(root, `\\b${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, 30)
+      .sort((a, b) => Number(sourcePaths.has(b.path)) - Number(sourcePaths.has(a.path)))) {
       found.set(`${item.path}:${item.line}`, item);
     }
   }

@@ -23,6 +23,8 @@ test("patches one current source span, records a diff, and preserves intervening
     const patch = { path: "main.js", oldText: "answer = 1", newText: "answer = 2" };
     const preview = previewPatch(root, patch);
     assert.match(preview.diff, /-answer = 1\n\+answer = 2/);
+    const newlineEdit = previewPatch(root, { ...patch, oldText: "1;\n", newText: "2;" });
+    assert.match(newlineEdit.diff, /-1;\n-\n\+2;/);
     fs.writeFileSync(file, "// user edit\nexport const answer = 1;\n");
     assert.throws(() => applyPatch(opened.db, root, patch, preview.beforeSha), /changed since patch preview/);
     assert.match(fs.readFileSync(file, "utf8"), /user edit/);

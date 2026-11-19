@@ -25,7 +25,7 @@ export function previewPatch(root: string, patch: TextPatch) {
   if (start < 0 || before.indexOf(patch.oldText, start + 1) >= 0) throw new Error("Patch text must match exactly once; the file may have changed.");
   const after = before.slice(0, start) + patch.newText + before.slice(start + patch.oldText.length);
   const line = before.slice(0, start).split("\n").length;
-  const lines = (value: string, marker: string) => value.replace(/\r\n/g, "\n").replace(/\n$/, "").split("\n").map((item) => `${marker}${item}`).join("\n");
+  const lines = (value: string, marker: string) => value.replace(/\r\n/g, "\n").split("\n").map((item) => `${marker}${item}`).join("\n");
   const diff = `--- a/${relative}\n+++ b/${relative}\n@@ ${line} @@\n${lines(patch.oldText, "-")}\n${lines(patch.newText, "+")}\n`;
   return { relative, full, beforeSha: digest(before), afterSha: digest(after), after, diff };
 }
@@ -57,7 +57,7 @@ export function applyPatch(db: DatabaseSync, root: string, patch: TextPatch, exp
 }
 
 export function recoverActions(db: DatabaseSync, root: string): ToolAction[] {
-  const pending = db.prepare("SELECT * FROM tool_actions WHERE status = 'pending'").all() as ToolAction[];
+  const pending = db.prepare("SELECT * FROM tool_actions WHERE operation = 'patch' AND status = 'pending'").all() as ToolAction[];
   for (const action of pending) {
     let current = "";
     try { current = digest(fs.readFileSync(safeSourceFile(root, action.path), "utf8")); } catch { /* Missing or inaccessible files remain conflicts. */ }
