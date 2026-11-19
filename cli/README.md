@@ -15,7 +15,8 @@ Manifest and lockfile changes select a new image and require preparation again.
 Run preparation again after changing local dependency source or build logic
 outside those files. Preparation has a 15-minute timeout. Sandbox scratch space
 is limited to 512 MiB per mount. Prepared-image test containers have a 2 GiB
-memory limit and a 256-process/thread limit. Larger dependency sets may exceed these limits.
+memory limit and a 256-process/thread limit. Gradle tests have up to ten minutes
+to finish. Larger dependency sets may exceed the sandbox limits.
 
 The CLI uses `~/.sagent/` for its local files. Set `SAGENT_API_URL` to override
 the development API URL. The API must be running for login, model responses,

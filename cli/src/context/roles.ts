@@ -40,7 +40,7 @@ export function codingRoles(db: DatabaseSync, root: string, model: (prompt: stri
     test: async proposal => {
       const results = [];
       for (const kind of proposal.checks.checks) {
-        const result = runSandbox(root, kind, 90000, proposal.checks.directory, kind.endsWith(":focused") ? proposal.checks.focus : "");
+        const result = runSandbox(root, kind, undefined, proposal.checks.directory, kind.endsWith(":focused") ? proposal.checks.focus : "");
         results.push(result);
         if (result.status !== "pass") break;
       }

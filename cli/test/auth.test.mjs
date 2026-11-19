@@ -11,7 +11,7 @@ test("device token uses the local snake-case file and nullable expiry", () => {
     const code = `
       import assert from 'node:assert/strict';
       import fs from 'node:fs';
-      import { TOKEN_FILE, storeToken, getStoredToken, isTokenExpired } from './dist/commands/auth/token.js';
+      import { TOKEN_FILE, storeToken, getStoredToken, isTokenExpired } from './dist/commands/auth/session.js';
       await storeToken({ access_token: 'test-token', expires_in: 3600 });
       let file = JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8'));
       assert.ok(file.expires_at && file.created_at);

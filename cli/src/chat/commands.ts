@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { createInterface } from "node:readline/promises";
 import { API_URL } from "../config.js";
-import { getStoredToken } from "../commands/auth/token.js";
+import { getStoredToken } from "../commands/auth/session.js";
 import { openGlobalStore } from "../storage/index.js";
 import { addDecision, addMessage, addPreference, createConversation, getConversation, listConversations, listPreferences, recentMessages, renameConversation } from "./store.js";
 import { textDeltas } from "./stream.js";

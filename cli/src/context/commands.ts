@@ -2,7 +2,7 @@ import { activeDecisions } from "../chat/store.js";
 import { Command } from "commander";
 import { confirm, isCancel } from "@clack/prompts";
 import { API_URL } from "../config.js";
-import { getStoredToken } from "../commands/auth/token.js";
+import { getStoredToken } from "../commands/auth/session.js";
 import { addDecision, addMessage, createConversation, getConversation, listConversations } from "../chat/store.js";
 import { textDeltas } from "../chat/stream.js";
 import { openProjectStore } from "../storage/index.js";

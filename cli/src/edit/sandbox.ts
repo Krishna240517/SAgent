@@ -24,14 +24,14 @@ const checks: Record<CheckKind, { image: string; argv: string[] }> = {
   "gradle:test": { image: "gradle:8-jdk21-alpine", argv: ["gradle", "test", "--offline", "--no-daemon", "--max-workers=1"] },
 };
 
-function docker(args: string[], timeout = 10_000) {
+function docker(args: string[], timeout = 60_000) {
   return spawnSync("docker", ["--context", "default", ...args], { encoding: "utf8", timeout, maxBuffer: 64 * 1024 });
 }
 
 function localDocker(): boolean {
   const context = docker(["context", "inspect", "default", "--format", "{{.Endpoints.docker.Host}}"]);
   if (context.status !== 0 || !/^(unix:\/\/|npipe:\/\/)/.test(context.stdout.trim())) return false;
-  const info = docker(["info", "--format", "{{.OSType}}"]);
+  const info = docker(["version", "--format", "{{.Server.Os}}"]);
   return info.status === 0 && info.stdout.trim() === "linux";
 }
 
@@ -39,14 +39,17 @@ export function sandboxAvailability(kind: CheckKind): string | null {
   const check = checks[kind];
   if (!check) throw new Error("Unsupported sandbox check.");
   if (!localDocker()) return "Local Linux Docker is unavailable; verified execution was not performed.";
-  if (docker(["image", "inspect", check.image]).status !== 0) return `Docker image ${check.image} is not installed; verified execution was not performed.`;
+  const image = docker(["image", "inspect", "--format", "{{.Id}}", check.image]);
+  if (image.error) return `Could not inspect Docker image ${check.image}: ${image.error.message}`;
+  if (image.status !== 0) return `Could not find Docker image ${check.image}; verified execution was not performed.`;
   return null;
 }
 
-export function runSandbox(root: string, kind: CheckKind, timeoutMs = 90_000, subdir = "", focus = ""): SandboxResult {
+export function runSandbox(root: string, kind: CheckKind, timeoutMs = kind === "gradle:test" ? 600_000 : 90_000, subdir = "", focus = ""): SandboxResult {
   requireToolPermission("sandbox_test");
   const check = checks[kind];
-  if (!check || !Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 180_000) throw new Error("Unsupported sandbox check or timeout.");
+  const maxTimeout = kind === "gradle:test" ? 600_000 : 180_000;
+  if (!check || !Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > maxTimeout) throw new Error("Unsupported sandbox check or timeout.");
   const directory = subdir.replaceAll("\\", "/");
   const focused = kind.endsWith(":focused");
   if (focused !== Boolean(focus) || (focus && (path.isAbsolute(focus) || focus.split("/").some((part) => !part || part === "..")))) {
@@ -65,7 +68,7 @@ export function runSandbox(root: string, kind: CheckKind, timeoutMs = 90_000, su
   const manager: DependencyKind | undefined = kind.startsWith("npm:") || kind.startsWith("node:") || kind.startsWith("typescript:") ? "npm"
     : kind.startsWith("python:") ? "python" : kind === "maven:test" ? "maven" : kind === "gradle:test" ? "gradle" : undefined;
   const prepared = manager ? dependencyImage(root, directory, manager) : undefined;
-  const image = prepared && docker(["image", "inspect", prepared]).status === 0 ? prepared : check.image;
+  const image = prepared && docker(["image", "inspect", "--format", "{{.Id}}", prepared]).status === 0 ? prepared : check.image;
   const dependencies = image === prepared ? (
     manager === "npm" ? 'cp -R /deps/node_modules . && ' :
     manager === "python" ? 'export PATH="/deps/venv/bin:$PATH" && ' :

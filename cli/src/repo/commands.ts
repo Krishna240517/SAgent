@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { API_URL } from "../config.js";
-import { getStoredToken } from "../commands/auth/token.js";
+import { getStoredToken } from "../commands/auth/session.js";
 import { linkProject, openProjectStore } from "../storage/index.js";
 import { discoverWorkspace, requireRevision } from "./workspace.js";
 import { globFiles, readRange, searchText } from "./tools.js";

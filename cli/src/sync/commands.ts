@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { getStoredToken } from "../commands/auth/token.js";
+import { getStoredToken } from "../commands/auth/session.js";
 import { openGlobalStore } from "../storage/index.js";
 import { listConflicts, localRecord, resolveConflict, syncNow } from "./client.js";
 

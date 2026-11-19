@@ -10,7 +10,7 @@ import { runSandbox, sandboxAvailability, type CheckKind, type SandboxResult } f
 
 type Propose = (prompt: string, context: string) => Promise<string>;
 type Approve = (diff: string) => Promise<boolean>;
-type Verify = (root: string, kind: CheckKind, timeoutMs: number, directory: string, focus: string) => SandboxResult;
+type Verify = typeof runSandbox;
 type Availability = (kind: CheckKind) => string | null;
 
 function logAction(db: DatabaseSync, operation: string, path: string, status: string, output: string, diff = "") {
@@ -59,7 +59,7 @@ export async function executeFix(db: DatabaseSync, root: string, task: string, p
   const results: { kind: CheckKind; result: SandboxResult }[] = [];
   for (const kind of plan.checks) {
     let result: SandboxResult;
-    try { result = verify(root, kind, 90_000, plan.directory, kind.endsWith(":focused") ? plan.focus : ""); }
+    try { result = verify(root, kind, undefined, plan.directory, kind.endsWith(":focused") ? plan.focus : ""); }
     catch (error) { result = { status: "fail", exitCode: null, output: String(error) }; }
     results.push({ kind, result });
     logAction(db, `sandbox:${kind}`, action.path, result.status === "pass" ? "completed" : "failed", result.output);
